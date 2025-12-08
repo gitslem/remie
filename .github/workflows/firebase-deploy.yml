@@ -20,15 +20,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: |
-            functions/package-lock.json
-            frontend/package-lock.json
 
       - name: Install Functions dependencies
         run: |
           cd functions
-          npm ci
+          npm install
 
       - name: Build Functions
         run: |
@@ -38,7 +34,7 @@ jobs:
       - name: Install Frontend dependencies
         run: |
           cd frontend
-          npm ci
+          npm install
 
       - name: Build Frontend
         env:
