@@ -1,0 +1,139 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User,
+  sendPasswordResetEmail,
+  updateProfile,
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Update user profile
+      await updateProfile(user, {
+        displayName: `${firstName} ${lastName}`,
+      });
+
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        email,
+        firstName,
+        lastName,
+        createdAt: new Date().toISOString(),
+        emailVerified: false,
+      });
+
+      // Create initial wallet
+      await setDoc(doc(db, 'wallets', user.uid), {
+        userId: user.uid,
+        balance: 0,
+        currency: 'NGN',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      toast.success('Account created successfully!');
+      router.push('/dashboard');
+    } catch (error: any) {
+      const errorMessage = error.code === 'auth/email-already-in-use'
+        ? 'Email already in use'
+        : error.code === 'auth/weak-password'
+        ? 'Password should be at least 6 characters'
+        : 'Failed to create account';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast.success('Logged in successfully!');
+      router.push('/dashboard');
+    } catch (error: any) {
+      const errorMessage = error.code === 'auth/invalid-credential'
+        ? 'Invalid email or password'
+        : error.code === 'auth/user-not-found'
+        ? 'User not found'
+        : 'Failed to login';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      toast.success('Logged out successfully');
+      router.push('/');
+    } catch (error) {
+      toast.error('Failed to logout');
+      throw error;
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast.success('Password reset email sent!');
+    } catch (error) {
+      toast.error('Failed to send reset email');
+      throw error;
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    signUp,
+    login,
+    logout,
+    resetPassword,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
