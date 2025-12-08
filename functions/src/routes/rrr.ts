@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import * as admin from 'firebase-admin';
-import axios from 'axios';
+import * as functions from 'firebase-functions';
 import { authenticate } from './auth';
 
 const router = Router();
 const db = admin.firestore();
 
 // Generate RRR code
-router.post('/generate', authenticate, async (req: Request, res: Response) => {
+router.post('/generate', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const {
@@ -40,11 +40,6 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-
-    // Generate RRR via Remita API
-    const merchantId = functions.config().remita.merchant_id;
-    const apiKey = functions.config().remita.api_key;
-    const baseUrl = functions.config().remita.base_url;
 
     // For demo purposes, generate a mock RRR
     const rrr = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
@@ -88,7 +83,7 @@ router.post('/generate', authenticate, async (req: Request, res: Response) => {
 });
 
 // Verify RRR payment
-router.get('/verify/:rrr', authenticate, async (req: Request, res: Response) => {
+router.get('/verify/:rrr', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { rrr } = req.params;
 
@@ -98,17 +93,15 @@ router.get('/verify/:rrr', authenticate, async (req: Request, res: Response) => 
       .get();
 
     if (rrrSnapshot.empty) {
-      return res.status(404).json({
+      res.status(404).json({
         status: 'error',
         message: 'RRR not found',
       });
+      return;
     }
 
     const rrrDoc = rrrSnapshot.docs[0];
     const rrrData = rrrDoc.data();
-
-    // In production, verify with Remita API
-    // For demo, return current status
 
     res.status(200).json({
       status: 'success',
@@ -127,7 +120,7 @@ router.get('/verify/:rrr', authenticate, async (req: Request, res: Response) => 
 });
 
 // Get user's RRR payments
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const limit = parseInt(req.query.limit as string) || 20;

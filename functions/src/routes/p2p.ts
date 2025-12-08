@@ -6,16 +6,17 @@ const router = Router();
 const db = admin.firestore();
 
 // Send money to another user
-router.post('/send', authenticate, async (req: Request, res: Response) => {
+router.post('/send', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const { receiverIdentifier, amount, description, category } = req.body;
 
     if (amount <= 0 || amount > 50000) {
-      return res.status(400).json({
+      res.status(400).json({
         status: 'error',
         message: 'Amount must be between 0 and 50,000',
       });
+      return;
     }
 
     // Find receiver
@@ -25,20 +26,22 @@ router.post('/send', authenticate, async (req: Request, res: Response) => {
       .get();
 
     if (receiverSnapshot.empty) {
-      return res.status(404).json({
+      res.status(404).json({
         status: 'error',
         message: 'Receiver not found',
       });
+      return;
     }
 
     const receiverDoc = receiverSnapshot.docs[0];
     const receiverId = receiverDoc.id;
 
     if (uid === receiverId) {
-      return res.status(400).json({
+      res.status(400).json({
         status: 'error',
         message: 'Cannot send money to yourself',
       });
+      return;
     }
 
     // Use Firestore transaction for atomic operation
@@ -108,7 +111,7 @@ router.post('/send', authenticate, async (req: Request, res: Response) => {
 });
 
 // Get user transfers
-router.get('/transfers', authenticate, async (req: Request, res: Response) => {
+router.get('/transfers', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const type = req.query.type || 'all';
@@ -141,16 +144,17 @@ router.get('/transfers', authenticate, async (req: Request, res: Response) => {
 });
 
 // Search users
-router.get('/search-users', authenticate, async (req: Request, res: Response) => {
+router.get('/search-users', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const query = req.query.q as string;
 
     if (!query || query.length < 2) {
-      return res.status(400).json({
+      res.status(400).json({
         status: 'error',
         message: 'Search query must be at least 2 characters',
       });
+      return;
     }
 
     const usersSnapshot = await db.collection('users')
