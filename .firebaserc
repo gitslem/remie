@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "remie-app"
-  }
+    "default": "remie-app",
+    "remiepay": "remiepay"
+  },
+  "targets": {},
+  "etags": {}
 }
