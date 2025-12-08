@@ -44,10 +44,11 @@ router.post('/send', auth_1.authenticate, async (req, res) => {
         const { uid } = req.user;
         const { receiverIdentifier, amount, description, category } = req.body;
         if (amount <= 0 || amount > 50000) {
-            return res.status(400).json({
+            res.status(400).json({
                 status: 'error',
                 message: 'Amount must be between 0 and 50,000',
             });
+            return;
         }
         // Find receiver
         const receiverSnapshot = await db.collection('users')
@@ -55,18 +56,20 @@ router.post('/send', auth_1.authenticate, async (req, res) => {
             .limit(1)
             .get();
         if (receiverSnapshot.empty) {
-            return res.status(404).json({
+            res.status(404).json({
                 status: 'error',
                 message: 'Receiver not found',
             });
+            return;
         }
         const receiverDoc = receiverSnapshot.docs[0];
         const receiverId = receiverDoc.id;
         if (uid === receiverId) {
-            return res.status(400).json({
+            res.status(400).json({
                 status: 'error',
                 message: 'Cannot send money to yourself',
             });
+            return;
         }
         // Use Firestore transaction for atomic operation
         const result = await db.runTransaction(async (transaction) => {
@@ -158,10 +161,11 @@ router.get('/search-users', auth_1.authenticate, async (req, res) => {
         const { uid } = req.user;
         const query = req.query.q;
         if (!query || query.length < 2) {
-            return res.status(400).json({
+            res.status(400).json({
                 status: 'error',
                 message: 'Search query must be at least 2 characters',
             });
+            return;
         }
         const usersSnapshot = await db.collection('users')
             .where('email', '>=', query)

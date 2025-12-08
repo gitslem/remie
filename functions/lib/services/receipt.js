@@ -33,57 +33,40 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = require("express");
+exports.generateReceipt = void 0;
 const admin = __importStar(require("firebase-admin"));
-const auth_1 = require("./auth");
-const router = (0, express_1.Router)();
 const db = admin.firestore();
-// Get wallet balance
-router.get('/', auth_1.authenticate, async (req, res) => {
+const generateReceipt = async (paymentId, payment) => {
     try {
-        const { uid } = req.user;
-        const walletDoc = await db.collection('wallets').doc(uid).get();
-        if (!walletDoc.exists) {
-            res.status(404).json({
-                status: 'error',
-                message: 'Wallet not found',
-            });
-            return;
-        }
-        res.status(200).json({
-            status: 'success',
-            data: walletDoc.data(),
+        // Generate receipt number
+        const receiptNumber = `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        // Create receipt record
+        await db.collection('receipts').doc().set({
+            userId: payment.userId,
+            paymentId,
+            receiptNumber,
+            amount: payment.amount,
+            paymentType: payment.type,
+            institutionName: payment.institutionName || 'N/A',
+            description: payment.description,
+            status: payment.status,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        // Create notification for receipt
+        await db.collection('notifications').doc().set({
+            userId: payment.userId,
+            type: 'RECEIPT_READY',
+            title: 'Receipt Generated',
+            message: `Your receipt ${receiptNumber} is ready`,
+            read: false,
+            data: { receiptNumber, paymentId },
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Receipt generated: ${receiptNumber}`);
     }
     catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message,
-        });
+        console.error('Receipt generation failed:', error);
     }
-});
-// Get wallet transactions
-router.get('/transactions', auth_1.authenticate, async (req, res) => {
-    try {
-        const { uid } = req.user;
-        const limit = parseInt(req.query.limit) || 20;
-        const paymentsSnapshot = await db.collection('payments')
-            .where('userId', '==', uid)
-            .orderBy('createdAt', 'desc')
-            .limit(limit)
-            .get();
-        const payments = paymentsSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
-        res.status(200).json({
-            status: 'success',
-            data: { transactions: payments },
-        });
-    }
-    catch (error) {
-        res.status(500).json({
-            status: 'error',
-            message: error.message,
-        });
-    }
-});
-exports.default = router;
-//# sourceMappingURL=wallet.js.map
+};
+exports.generateReceipt = generateReceipt;
+//# sourceMappingURL=receipt.js.map

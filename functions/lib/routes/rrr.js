@@ -61,10 +61,6 @@ router.post('/generate', auth_1.authenticate, async (req, res) => {
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        // Generate RRR via Remita API
-        const merchantId = functions.config().remita.merchant_id;
-        const apiKey = functions.config().remita.api_key;
-        const baseUrl = functions.config().remita.base_url;
         // For demo purposes, generate a mock RRR
         const rrr = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
         // Create RRR payment record
@@ -113,15 +109,14 @@ router.get('/verify/:rrr', auth_1.authenticate, async (req, res) => {
             .limit(1)
             .get();
         if (rrrSnapshot.empty) {
-            return res.status(404).json({
+            res.status(404).json({
                 status: 'error',
                 message: 'RRR not found',
             });
+            return;
         }
         const rrrDoc = rrrSnapshot.docs[0];
         const rrrData = rrrDoc.data();
-        // In production, verify with Remita API
-        // For demo, return current status
         res.status(200).json({
             status: 'success',
             data: {

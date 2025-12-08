@@ -68,17 +68,19 @@ router.get('/:id', auth_1.authenticate, async (req, res) => {
         const { id } = req.params;
         const paymentDoc = await db.collection('payments').doc(id).get();
         if (!paymentDoc.exists) {
-            return res.status(404).json({
+            res.status(404).json({
                 status: 'error',
                 message: 'Payment not found',
             });
+            return;
         }
         const payment = paymentDoc.data();
-        if ((payment === null || payment === void 0 ? void 0 : payment.userId) !== uid) {
-            return res.status(403).json({
+        if (!payment || payment.userId !== uid) {
+            res.status(403).json({
                 status: 'error',
                 message: 'Unauthorized',
             });
+            return;
         }
         res.status(200).json({
             status: 'success',

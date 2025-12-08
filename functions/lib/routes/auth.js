@@ -45,10 +45,11 @@ const authenticate = async (req, res, next) => {
     try {
         const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split('Bearer ')[1];
         if (!token) {
-            return res.status(401).json({
+            res.status(401).json({
                 status: 'error',
                 message: 'Authentication token required',
             });
+            return;
         }
         const decodedToken = await auth.verifyIdToken(token);
         req.user = {
@@ -119,10 +120,11 @@ router.get('/profile', exports.authenticate, async (req, res) => {
         const { uid } = req.user;
         const userDoc = await db.collection('users').doc(uid).get();
         if (!userDoc.exists) {
-            return res.status(404).json({
+            res.status(404).json({
                 status: 'error',
                 message: 'User profile not found',
             });
+            return;
         }
         res.status(200).json({
             status: 'success',
