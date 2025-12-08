@@ -1,0 +1,569 @@
+// Prisma Schema for REMIE Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+enum UserRole {
+  STUDENT
+  ADMIN
+  SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+  PENDING_VERIFICATION
+}
+
+model User {
+  id                String      @id @default(uuid())
+  email             String      @unique
+  phoneNumber       String?     @unique
+  password          String
+  firstName         String
+  lastName          String
+  middleName        String?
+  dateOfBirth       DateTime?
+  role              UserRole    @default(STUDENT)
+  status            UserStatus  @default(PENDING_VERIFICATION)
+  emailVerified     Boolean     @default(false)
+  phoneVerified     Boolean     @default(false)
+
+  // Student specific fields
+  studentId         String?     @unique
+  institution       String?
+  department        String?
+  level             String?
+  matricNumber      String?
+
+  // KYC fields
+  bvn               String?     @unique
+  nin               String?     @unique
+  kycVerified       Boolean     @default(false)
+  kycDocuments      Json?
+
+  // Profile
+  profilePhoto      String?
+  address           String?
+  city              String?
+  state             String?
+  country           String      @default("Nigeria")
+
+  // Security
+  refreshToken      String?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean     @default(false)
+
+  // Timestamps
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  lastLoginAt       DateTime?
+
+  // Relations
+  wallet            Wallet?
+  payments          Payment[]
+  rrrPayments       RRRPayment[]
+  loans             Loan[]
+  p2pSent           P2PTransfer[] @relation("SenderTransfers")
+  p2pReceived       P2PTransfer[] @relation("ReceiverTransfers")
+  receipts          Receipt[]
+  notifications     Notification[]
+  cryptoTransactions CryptoTransaction[]
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([studentId])
+}
+
+// ============================================
+// WALLET MANAGEMENT
+// ============================================
+
+model Wallet {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Balances
+  balance           Decimal   @default(0) @db.Decimal(18, 2)
+  ledgerBalance     Decimal   @default(0) @db.Decimal(18, 2)
+  availableBalance  Decimal   @default(0) @db.Decimal(18, 2)
+
+  // Crypto balances
+  usdtBalance       Decimal   @default(0) @db.Decimal(18, 6)
+  usdcBalance       Decimal   @default(0) @db.Decimal(18, 6)
+
+  // Wallet address (for crypto)
+  cryptoAddress     String?   @unique
+
+  // Limits
+  dailyLimit        Decimal   @default(100000) @db.Decimal(18, 2)
+  monthlyLimit      Decimal   @default(500000) @db.Decimal(18, 2)
+
+  // Status
+  isActive          Boolean   @default(true)
+  isFrozen          Boolean   @default(false)
+
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// ============================================
+// PAYMENT TRANSACTIONS
+// ============================================
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentType {
+  SCHOOL_FEE
+  ACCEPTANCE_FEE
+  HOSTEL_FEE
+  EXAM_FEE
+  NIN_REGISTRATION
+  JAMB_FEE
+  WAEC_FEE
+  NECO_FEE
+  OTHER_GOVERNMENT
+  UTILITY
+  OTHER
+}
+
+enum PaymentMethod {
+  WALLET
+  CARD
+  BANK_TRANSFER
+  USSD
+  CRYPTO
+  RRR
+}
+
+model Payment {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+
+  // Payment details
+  reference         String          @unique
+  amount            Decimal         @db.Decimal(18, 2)
+  currency          String          @default("NGN")
+  type              PaymentType
+  method            PaymentMethod
+  status            PaymentStatus   @default(PENDING)
+
+  // Recipient details
+  recipientName     String
+  recipientAccount  String?
+  institutionName   String?
+
+  // Description
+  description       String
+  metadata          Json?
+
+  // Gateway info
+  gatewayReference  String?
+  gatewayResponse   Json?
+
+  // Fees
+  processingFee     Decimal         @default(0) @db.Decimal(18, 2)
+  totalAmount       Decimal         @db.Decimal(18, 2)
+
+  // Timestamps
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  completedAt       DateTime?
+
+  // Relations
+  receipt           Receipt?
+  rrrPayment        RRRPayment?
+
+  @@index([userId])
+  @@index([reference])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
+// RRR PAYMENT SYSTEM
+// ============================================
+
+enum RRRPaymentStatus {
+  INITIATED
+  PENDING
+  PAID
+  FAILED
+  REVERSED
+}
+
+model RRRPayment {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id])
+  paymentId         String            @unique
+  payment           Payment           @relation(fields: [paymentId], references: [id])
+
+  // RRR Details
+  rrr               String            @unique
+  orderId           String?
+  amount            Decimal           @db.Decimal(18, 2)
+
+  // Institution details
+  institutionCode   String
+  institutionName   String
+  serviceTypeId     String
+
+  // Payment details
+  payerName         String
+  payerEmail        String
+  payerPhone        String
+
+  // Remita response
+  transactionId     String?
+  remitaReference   String?
+  status            RRRPaymentStatus  @default(INITIATED)
+  statusMessage     String?
+
+  // Additional info
+  metadata          Json?
+
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  paidAt            DateTime?
+  expiresAt         DateTime?
+
+  @@index([rrr])
+  @@index([userId])
+  @@index([status])
+}
+
+// ============================================
+// RECEIPT MANAGEMENT
+// ============================================
+
+model Receipt {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  paymentId         String    @unique
+  payment           Payment   @relation(fields: [paymentId], references: [id])
+
+  // Receipt details
+  receiptNumber     String    @unique
+  receiptUrl        String?   // S3 URL to PDF
+  qrCode            String?   // QR code for verification
+
+  // Email status
+  emailSent         Boolean   @default(false)
+  emailSentAt       DateTime?
+
+  // Download tracking
+  downloadCount     Int       @default(0)
+  lastDownloadedAt  DateTime?
+
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([receiptNumber])
+  @@index([userId])
+}
+
+// ============================================
+// LOAN / PAY LATER SYSTEM
+// ============================================
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  DISBURSED
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+  REJECTED
+  CANCELLED
+}
+
+model Loan {
+  id                String      @id @default(uuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id])
+
+  // Loan details
+  loanNumber        String      @unique
+  amount            Decimal     @db.Decimal(18, 2)
+  interestRate      Decimal     @db.Decimal(5, 2) // Annual percentage
+  tenure            Int         // Days
+
+  // Purpose
+  purpose           String
+  purposeType       PaymentType
+
+  // Repayment
+  totalRepayable    Decimal     @db.Decimal(18, 2)
+  amountPaid        Decimal     @default(0) @db.Decimal(18, 2)
+  amountOutstanding Decimal     @db.Decimal(18, 2)
+
+  // Dates
+  disbursedAt       DateTime?
+  dueDate           DateTime
+  lastPaymentDate   DateTime?
+
+  // Status
+  status            LoanStatus  @default(PENDING)
+
+  // Credit score impact
+  creditScore       Int?
+
+  // Approval
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+
+  // Metadata
+  metadata          Json?
+
+  // Timestamps
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  repayments        LoanRepayment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([loanNumber])
+}
+
+model LoanRepayment {
+  id                String    @id @default(uuid())
+  loanId            String
+  loan              Loan      @relation(fields: [loanId], references: [id])
+
+  // Repayment details
+  amount            Decimal   @db.Decimal(18, 2)
+  reference         String    @unique
+  paymentMethod     PaymentMethod
+
+  // Status
+  status            PaymentStatus
+
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  paidAt            DateTime?
+
+  @@index([loanId])
+  @@index([reference])
+}
+
+// ============================================
+// PEER-TO-PEER TRANSFERS
+// ============================================
+
+enum P2PStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model P2PTransfer {
+  id                String      @id @default(uuid())
+
+  // Sender
+  senderId          String
+  sender            User        @relation("SenderTransfers", fields: [senderId], references: [id])
+
+  // Receiver
+  receiverId        String
+  receiver          User        @relation("ReceiverTransfers", fields: [receiverId], references: [id])
+
+  // Transfer details
+  reference         String      @unique
+  amount            Decimal     @db.Decimal(18, 2)
+  fee               Decimal     @default(0) @db.Decimal(18, 2)
+  totalAmount       Decimal     @db.Decimal(18, 2)
+
+  // Description
+  description       String?
+  category          String?     // e.g., "hostel", "project", "food"
+
+  // Status
+  status            P2PStatus   @default(PENDING)
+
+  // Timestamps
+  createdAt         DateTime    @default(now())
+  completedAt       DateTime?
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([reference])
+  @@index([status])
+}
+
+// ============================================
+// CRYPTOCURRENCY TRANSACTIONS
+// ============================================
+
+enum CryptoType {
+  USDT
+  USDC
+  ETH
+  BTC
+}
+
+enum CryptoTxStatus {
+  PENDING
+  CONFIRMING
+  CONFIRMED
+  FAILED
+}
+
+enum CryptoTxType {
+  DEPOSIT
+  WITHDRAWAL
+  PAYMENT
+}
+
+model CryptoTransaction {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+
+  // Transaction details
+  txHash            String          @unique
+  cryptoType        CryptoType
+  type              CryptoTxType
+  amount            Decimal         @db.Decimal(18, 6)
+  amountInNGN       Decimal?        @db.Decimal(18, 2)
+  exchangeRate      Decimal?        @db.Decimal(18, 6)
+
+  // Addresses
+  fromAddress       String
+  toAddress         String
+
+  // Blockchain info
+  blockNumber       BigInt?
+  confirmations     Int             @default(0)
+  gasUsed           Decimal?        @db.Decimal(18, 6)
+  gasFee            Decimal?        @db.Decimal(18, 6)
+
+  // Status
+  status            CryptoTxStatus  @default(PENDING)
+
+  // Metadata
+  metadata          Json?
+
+  // Timestamps
+  createdAt         DateTime        @default(now())
+  confirmedAt       DateTime?
+
+  @@index([userId])
+  @@index([txHash])
+  @@index([status])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  RECEIPT_READY
+  LOAN_APPROVED
+  LOAN_REJECTED
+  LOAN_DUE
+  P2P_RECEIVED
+  P2P_SENT
+  WALLET_CREDITED
+  WALLET_DEBITED
+  SECURITY_ALERT
+  SYSTEM
+}
+
+model Notification {
+  id                String              @id @default(uuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id])
+
+  // Notification details
+  type              NotificationType
+  title             String
+  message           String
+  data              Json?
+
+  // Status
+  read              Boolean             @default(false)
+  readAt            DateTime?
+
+  // Delivery
+  emailSent         Boolean             @default(false)
+  smsSent           Boolean             @default(false)
+  pushSent          Boolean             @default(false)
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id                String    @id @default(uuid())
+  userId            String?
+  action            String
+  entity            String
+  entityId          String?
+  changes           Json?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================
+// SYSTEM SETTINGS
+// ============================================
+
+model SystemSetting {
+  id                String    @id @default(uuid())
+  key               String    @unique
+  value             String
+  description       String?
+  isPublic          Boolean   @default(false)
+  updatedAt         DateTime  @updatedAt
+
+  @@index([key])
+}
