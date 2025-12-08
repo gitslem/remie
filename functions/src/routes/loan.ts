@@ -11,23 +11,25 @@ const INTEREST_RATE = 5; // 5% annual
 const MAX_TENURE_DAYS = 90;
 
 // Apply for loan
-router.post('/apply', authenticate, async (req: Request, res: Response) => {
+router.post('/apply', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const { amount, purpose, purposeType, tenure } = req.body;
 
     if (amount < MIN_LOAN_AMOUNT || amount > MAX_LOAN_AMOUNT) {
-      return res.status(400).json({
+      res.status(400).json({
         status: 'error',
         message: `Loan amount must be between ₦${MIN_LOAN_AMOUNT} and ₦${MAX_LOAN_AMOUNT}`,
       });
+      return;
     }
 
     if (tenure < 7 || tenure > MAX_TENURE_DAYS) {
-      return res.status(400).json({
+      res.status(400).json({
         status: 'error',
         message: `Loan tenure must be between 7 and ${MAX_TENURE_DAYS} days`,
       });
+      return;
     }
 
     // Check for active loans
@@ -38,10 +40,11 @@ router.post('/apply', authenticate, async (req: Request, res: Response) => {
       .get();
 
     if (!activeLoansSnapshot.empty) {
-      return res.status(400).json({
+      res.status(400).json({
         status: 'error',
         message: 'You already have an active loan',
       });
+      return;
     }
 
     // Calculate repayable amount
@@ -100,7 +103,7 @@ router.post('/apply', authenticate, async (req: Request, res: Response) => {
 });
 
 // Repay loan
-router.post('/:loanId/repay', authenticate, async (req: Request, res: Response) => {
+router.post('/:loanId/repay', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const { loanId } = req.params;
@@ -109,26 +112,29 @@ router.post('/:loanId/repay', authenticate, async (req: Request, res: Response) 
     const loanDoc = await db.collection('loans').doc(loanId).get();
 
     if (!loanDoc.exists) {
-      return res.status(404).json({
+      res.status(404).json({
         status: 'error',
         message: 'Loan not found',
       });
+      return;
     }
 
     const loan = loanDoc.data();
 
-    if (loan?.userId !== uid) {
-      return res.status(403).json({
+    if (!loan || loan.userId !== uid) {
+      res.status(403).json({
         status: 'error',
         message: 'Unauthorized',
       });
+      return;
     }
 
-    if (amount <= 0 || amount > loan?.amountOutstanding) {
-      return res.status(400).json({
+    if (amount <= 0 || amount > loan.amountOutstanding) {
+      res.status(400).json({
         status: 'error',
         message: 'Invalid repayment amount',
       });
+      return;
     }
 
     // Process repayment
@@ -136,7 +142,7 @@ router.post('/:loanId/repay', authenticate, async (req: Request, res: Response) 
       const walletRef = db.collection('wallets').doc(uid);
       const wallet = await transaction.get(walletRef);
 
-      if (!wallet.exists || wallet.data()?.availableBalance < amount) {
+      if (!wallet.exists || (wallet.data()?.availableBalance || 0) < amount) {
         throw new Error('Insufficient wallet balance');
       }
 
@@ -148,7 +154,7 @@ router.post('/:loanId/repay', authenticate, async (req: Request, res: Response) 
       });
 
       // Update loan
-      const newOutstanding = loan.amountOutstanding - amount;
+      const newOutstanding = (loan.amountOutstanding || 0) - amount;
       transaction.update(loanDoc.ref, {
         amountPaid: admin.firestore.FieldValue.increment(amount),
         amountOutstanding: newOutstanding,
@@ -183,7 +189,7 @@ router.post('/:loanId/repay', authenticate, async (req: Request, res: Response) 
 });
 
 // Get user loans
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const limit = parseInt(req.query.limit as string) || 20;

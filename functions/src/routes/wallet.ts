@@ -6,17 +6,18 @@ const router = Router();
 const db = admin.firestore();
 
 // Get wallet balance
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
 
     const walletDoc = await db.collection('wallets').doc(uid).get();
 
     if (!walletDoc.exists) {
-      return res.status(404).json({
+      res.status(404).json({
         status: 'error',
         message: 'Wallet not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -32,7 +33,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 });
 
 // Get wallet transactions
-router.get('/transactions', authenticate, async (req: Request, res: Response) => {
+router.get('/transactions', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const limit = parseInt(req.query.limit as string) || 20;
