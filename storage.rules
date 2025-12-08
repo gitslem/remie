@@ -1,0 +1,34 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Receipts - users can only access their own
+    match /receipts/{userId}/{receiptId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if false; // Only backend can write
+    }
+
+    // Documents - users can read/write their own
+    match /documents/{userId}/{document=**} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Profile photos
+    match /profiles/{userId}/photo {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId) &&
+                   request.resource.size < 5 * 1024 * 1024 && // 5MB max
+                   request.resource.contentType.matches('image/.*');
+    }
+  }
+}
