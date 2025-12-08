@@ -25,9 +25,13 @@ export default function DashboardPage() {
   }, [user]);
 
   const fetchDashboardData = async () => {
+    if (!db || !user) {
+      setLoading(false);
+      return;
+    }
     try {
       // Fetch wallet
-      const walletDoc = await getDoc(doc(db, 'wallets', user!.uid));
+      const walletDoc = await getDoc(doc(db, 'wallets', user.uid));
       if (walletDoc.exists()) {
         setWallet(walletDoc.data());
       }

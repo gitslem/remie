@@ -26,7 +26,8 @@ export default function P2PPage() {
   }, [user]);
 
   const fetchWallet = async () => {
-    const walletDoc = await getDoc(doc(db, 'wallets', user!.uid));
+    if (!db || !user) return;
+    const walletDoc = await getDoc(doc(db, 'wallets', user.uid));
     if (walletDoc.exists()) {
       setWallet(walletDoc.data());
     }

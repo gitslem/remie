@@ -40,6 +40,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       setLoading(false);
@@ -49,6 +54,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+    if (!auth || !db) {
+      toast.error('Firebase not initialized');
+      throw new Error('Firebase not initialized');
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -90,6 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
+    if (!auth) {
+      toast.error('Firebase not initialized');
+      throw new Error('Firebase not initialized');
+    }
     try {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success('Logged in successfully!');
@@ -106,6 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (!auth) {
+      toast.error('Firebase not initialized');
+      throw new Error('Firebase not initialized');
+    }
     try {
       await signOut(auth);
       toast.success('Logged out successfully');
@@ -117,6 +134,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetPassword = async (email: string) => {
+    if (!auth) {
+      toast.error('Firebase not initialized');
+      throw new Error('Firebase not initialized');
+    }
     try {
       await sendPasswordResetEmail(auth, email);
       toast.success('Password reset email sent!');
