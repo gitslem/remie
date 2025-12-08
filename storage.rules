@@ -11,24 +11,57 @@ service firebase.storage {
       return request.auth.uid == userId;
     }
 
-    // Receipts - users can only access their own
-    match /receipts/{userId}/{receiptId} {
-      allow read: if isAuthenticated() && isOwner(userId);
-      allow write: if false; // Only backend can write
+    function isValidImageType(contentType) {
+      return contentType.matches('image/(jpeg|jpg|png|gif|webp)');
     }
 
-    // Documents - users can read/write their own
+    function isValidDocumentType(contentType) {
+      return contentType.matches('(image/(jpeg|jpg|png|gif|webp)|application/pdf)');
+    }
+
+    // Receipts - users can only access their own, only backend can write
+    match /receipts/{userId}/{receiptId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow write: if false; // Only Cloud Functions can write receipts
+    }
+
+    // Documents - users can read/write their own (student IDs, proof of enrollment, etc.)
     match /documents/{userId}/{document=**} {
       allow read: if isAuthenticated() && isOwner(userId);
-      allow write: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() &&
+                   isOwner(userId) &&
+                   request.resource.size < 10 * 1024 * 1024 && // 10MB max for documents
+                   isValidDocumentType(request.resource.contentType);
     }
 
     // Profile photos
     match /profiles/{userId}/photo {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isOwner(userId) &&
+      allow read: if isAuthenticated(); // Anyone authenticated can view profiles
+      allow write: if isAuthenticated() &&
+                   isOwner(userId) &&
                    request.resource.size < 5 * 1024 * 1024 && // 5MB max
-                   request.resource.contentType.matches('image/.*');
+                   isValidImageType(request.resource.contentType);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Transaction proofs (uploaded by users for verification)
+    match /transaction-proofs/{userId}/{proofId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() &&
+                    isOwner(userId) &&
+                    request.resource.size < 5 * 1024 * 1024 && // 5MB max
+                    isValidImageType(request.resource.contentType);
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Loan documents (income proof, guarantor forms, etc.)
+    match /loan-documents/{userId}/{documentId} {
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() &&
+                    isOwner(userId) &&
+                    request.resource.size < 10 * 1024 * 1024 && // 10MB max
+                    isValidDocumentType(request.resource.contentType);
+      allow delete: if isAuthenticated() && isOwner(userId);
     }
   }
 }
