@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Wallets collection
+    match /wallets/{walletId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Payments collection
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+                    (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // RRR Payments
+    match /rrrPayments/{rrrId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+                    (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // P2P Transfers
+    match /p2pTransfers/{transferId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.senderId == request.auth.uid ||
+                   resource.data.receiverId == request.auth.uid ||
+                   isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+    }
+
+    // Loans
+    match /loans/{loanId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+                    (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Loan Repayments
+    match /loanRepayments/{repaymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+    }
+
+    // Crypto Transactions
+    match /cryptoTransactions/{txId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+    }
+
+    // Receipts
+    match /receipts/{receiptId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // System Settings (admin only)
+    match /systemSettings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
