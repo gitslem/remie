@@ -1,7 +1,4 @@
-import * as admin from 'firebase-admin';
 import * as nodemailer from 'nodemailer';
-
-const db = admin.firestore();
 
 interface EmailOptions {
   to: string;
