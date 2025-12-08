@@ -20,8 +20,9 @@ export default function WalletPage() {
   }, [user]);
 
   const fetchWallet = async () => {
+    if (!db || !user) return;
     try {
-      const walletDoc = await getDoc(doc(db, 'wallets', user!.uid));
+      const walletDoc = await getDoc(doc(db, 'wallets', user.uid));
       if (walletDoc.exists()) {
         setWallet({ id: walletDoc.id, ...walletDoc.data() });
       }
@@ -42,10 +43,15 @@ export default function WalletPage() {
       return;
     }
 
+    if (!db || !user) {
+      toast.error('Firebase not initialized');
+      return;
+    }
+
     try {
       // In production, this would integrate with a payment gateway
       // For now, we'll simulate adding funds
-      const walletRef = doc(db, 'wallets', user!.uid);
+      const walletRef = doc(db, 'wallets', user.uid);
       await updateDoc(walletRef, {
         balance: increment(amount),
         updatedAt: new Date().toISOString(),

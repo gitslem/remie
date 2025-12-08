@@ -18,13 +18,17 @@ export default function TransactionsPage() {
   }, [user]);
 
   const fetchTransactions = async () => {
+    if (!db || !user) {
+      setLoading(false);
+      return;
+    }
     try {
       const allTransactions: any[] = [];
 
       // Fetch P2P transfers (sent)
       const p2pQuery = query(
         collection(db, 'p2pTransfers'),
-        where('senderId', '==', user!.uid),
+        where('senderId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
       const p2pSnapshot = await getDocs(p2pQuery);
@@ -39,7 +43,7 @@ export default function TransactionsPage() {
       // Fetch RRR payments
       const rrrQuery = query(
         collection(db, 'rrrPayments'),
-        where('userId', '==', user!.uid),
+        where('userId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
       const rrrSnapshot = await getDocs(rrrQuery);

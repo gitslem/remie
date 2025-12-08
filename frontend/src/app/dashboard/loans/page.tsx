@@ -27,10 +27,11 @@ export default function LoansPage() {
   }, [user]);
 
   const fetchLoans = async () => {
+    if (!db || !user) return;
     try {
       const loansQuery = query(
         collection(db, 'loans'),
-        where('userId', '==', user!.uid)
+        where('userId', '==', user.uid)
       );
       const snapshot = await getDocs(loansQuery);
       const loansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
