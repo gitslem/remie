@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import * as admin from 'firebase-admin';
 
 const router = Router();
@@ -6,15 +6,16 @@ const db = admin.firestore();
 const auth = admin.auth();
 
 // Middleware to verify Firebase token
-export const authenticate = async (req: Request, res: Response, next: Function) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = req.headers.authorization?.split('Bearer ')[1];
 
     if (!token) {
-      return res.status(401).json({
+      res.status(401).json({
         status: 'error',
         message: 'Authentication token required',
       });
+      return;
     }
 
     const decodedToken = await auth.verifyIdToken(token);
@@ -33,7 +34,7 @@ export const authenticate = async (req: Request, res: Response, next: Function) 
 };
 
 // Create user profile after Firebase Auth registration
-router.post('/create-profile', authenticate, async (req: Request, res: Response) => {
+router.post('/create-profile', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const { firstName, lastName, phoneNumber, studentId, institution } = req.body;
@@ -84,17 +85,18 @@ router.post('/create-profile', authenticate, async (req: Request, res: Response)
 });
 
 // Get user profile
-router.get('/profile', authenticate, async (req: Request, res: Response) => {
+router.get('/profile', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
 
     const userDoc = await db.collection('users').doc(uid).get();
 
     if (!userDoc.exists) {
-      return res.status(404).json({
+      res.status(404).json({
         status: 'error',
         message: 'User profile not found',
       });
+      return;
     }
 
     res.status(200).json({
@@ -110,7 +112,7 @@ router.get('/profile', authenticate, async (req: Request, res: Response) => {
 });
 
 // Update user profile
-router.put('/profile', authenticate, async (req: Request, res: Response) => {
+router.put('/profile', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const updates = req.body;

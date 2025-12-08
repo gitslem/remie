@@ -6,7 +6,7 @@ const router = Router();
 const db = admin.firestore();
 
 // Get all payments
-router.get('/', authenticate, async (req: Request, res: Response) => {
+router.get('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const limit = parseInt(req.query.limit as string) || 20;
@@ -35,7 +35,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 });
 
 // Get payment by ID
-router.get('/:id', authenticate, async (req: Request, res: Response) => {
+router.get('/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
     const { id } = req.params;
@@ -43,19 +43,21 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
     const paymentDoc = await db.collection('payments').doc(id).get();
 
     if (!paymentDoc.exists) {
-      return res.status(404).json({
+      res.status(404).json({
         status: 'error',
         message: 'Payment not found',
       });
+      return;
     }
 
     const payment = paymentDoc.data();
 
-    if (payment?.userId !== uid) {
-      return res.status(403).json({
+    if (!payment || payment.userId !== uid) {
+      res.status(403).json({
         status: 'error',
         message: 'Unauthorized',
       });
+      return;
     }
 
     res.status(200).json({
