@@ -55,6 +55,7 @@ temp/
 
 # Build artifacts
 *.tsbuildinfo
+functions/lib/
 
 # Docker
 docker-compose.override.yml
