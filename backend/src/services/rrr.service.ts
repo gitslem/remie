@@ -3,7 +3,8 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
-import { sendEmail } from '../utils/email';
+import emailService from './email.service';
+import receiptService from './receipt.service';
 
 const prisma = new PrismaClient();
 
@@ -116,18 +117,26 @@ export class RRRService {
       logger.info(`RRR generated: ${rrr} for user ${data.userId}`);
 
       // Send email with RRR details
-      await sendEmail({
-        to: data.payerEmail,
-        subject: 'RRR Code Generated',
-        template: 'rrr-generated',
-        data: {
-          firstName: data.payerName.split(' ')[0],
-          rrr,
-          amount: data.amount,
-          institutionName: data.institutionName,
-          description: data.description,
-        },
-      });
+      try {
+        await emailService.sendEmail({
+          to: data.payerEmail,
+          subject: 'RRR Code Generated - REMIE',
+          html: `
+            <h2>Hi ${data.payerName.split(' ')[0]},</h2>
+            <p>Your RRR code has been generated successfully!</p>
+            <p><strong>RRR:</strong> ${rrr}</p>
+            <p><strong>Amount:</strong> ₦${data.amount.toLocaleString('en-NG')}</p>
+            <p><strong>Institution:</strong> ${data.institutionName}</p>
+            <p><strong>Description:</strong> ${data.description}</p>
+            <p><strong>Expires:</strong> ${new Date(
+              Date.now() + 86400000 * 7
+            ).toLocaleDateString('en-NG')}</p>
+            <p>Use this RRR code to complete your payment at any bank or online payment platform.</p>
+          `,
+        });
+      } catch (emailError: any) {
+        logger.warn('Failed to send RRR email', { error: emailError.message });
+      }
 
       return {
         rrr,
@@ -191,7 +200,37 @@ export class RRRService {
         ]);
 
         // Generate receipt
-        // This will be handled by receipt service
+        try {
+          const receipt = await receiptService.generateReceipt({
+            paymentId: rrrPayment.paymentId,
+            userId: rrrPayment.userId,
+          });
+
+          // Get user details
+          const user = await prisma.user.findUnique({
+            where: { id: rrrPayment.userId },
+          });
+
+          if (user && receipt) {
+            // Send receipt via email
+            const payment = await prisma.payment.findUnique({
+              where: { id: rrrPayment.paymentId },
+            });
+
+            if (payment) {
+              await emailService.sendReceipt({
+                email: user.email,
+                firstName: user.firstName,
+                receipt: { ...receipt, payment },
+              });
+            }
+          }
+        } catch (receiptError: any) {
+          logger.error('Failed to generate receipt for RRR payment', {
+            error: receiptError.message,
+            rrr,
+          });
+        }
 
         logger.info(`RRR ${rrr} payment verified and completed`);
 
