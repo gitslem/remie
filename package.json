@@ -1,4 +1,12 @@
 {
+  "name": "remie",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm run build && cd ../functions && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:functions": "cd functions && npm run build"
+  },
   "dependencies": {
     "firebase-tools": "^14.27.0"
   }
