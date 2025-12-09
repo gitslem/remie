@@ -5,44 +5,62 @@ import { authenticate } from './auth';
 const router = Router();
 const db = admin.firestore();
 
-// Version 1.0.1 - Force redeploy with proper error handling
+// Version 1.0.2 - Comprehensive error handling
+// Diagnostic endpoint to test functions are working
+router.get('/test', async (req: Request, res: Response): Promise<void> => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Wallet routes are working',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Initialize wallet if it doesn't exist
 const ensureWalletExists = async (userId: string) => {
-  const walletRef = db.collection('wallets').doc(userId);
-  const walletDoc = await walletRef.get();
+  try {
+    const walletRef = db.collection('wallets').doc(userId);
+    const walletDoc = await walletRef.get();
 
-  if (!walletDoc.exists) {
-    await walletRef.set({
-      userId,
-      balance: 0,
-      availableBalance: 0,
-      currency: 'NGN',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    if (!walletDoc.exists) {
+      await walletRef.set({
+        userId,
+        balance: 0,
+        availableBalance: 0,
+        currency: 'NGN',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    return walletRef;
+  } catch (error: any) {
+    console.error('[ensureWalletExists] Error:', error);
+    throw new Error(`Failed to ensure wallet exists: ${error.message}`);
   }
-
-  return walletRef;
 };
 
 // Get wallet balance
 router.get('/', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
+    console.log('[GET /wallet] Request from user:', uid);
 
     // Ensure wallet exists
     await ensureWalletExists(uid);
 
     const walletDoc = await db.collection('wallets').doc(uid).get();
+    const walletData = walletDoc.data();
 
     res.status(200).json({
       status: 'success',
-      data: walletDoc.data(),
+      data: walletData || { userId: uid, balance: 0, availableBalance: 0, currency: 'NGN' },
     });
   } catch (error: any) {
+    console.error('[GET /wallet] Error:', error);
     res.status(500).json({
       status: 'error',
-      message: error.message,
+      message: error.message || 'Internal server error',
+      code: error.code,
     });
   }
 });
