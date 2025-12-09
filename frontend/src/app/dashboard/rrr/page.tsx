@@ -71,7 +71,7 @@ export default function RRRPage() {
                 onChange={handleChange}
                 required
                 min="1"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="50000"
               />
             </div>
@@ -84,7 +84,7 @@ export default function RRRPage() {
                 name="purpose"
                 value={formData.purpose}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="SCHOOL_FEES">School Fees</option>
                 <option value="ACCEPTANCE_FEE">Acceptance Fee</option>
@@ -106,7 +106,7 @@ export default function RRRPage() {
                 value={formData.institution}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="University of Lagos"
               />
             </div>
@@ -120,7 +120,7 @@ export default function RRRPage() {
                 value={formData.description}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Payment for 2024/2025 session tuition fees"
               />
             </div>

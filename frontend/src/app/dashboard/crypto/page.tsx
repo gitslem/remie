@@ -75,7 +75,7 @@ export default function CryptoPage() {
               <select
                 value={formData.cryptocurrency}
                 onChange={(e) => setFormData({ ...formData, cryptocurrency: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="USDT">USDT (Tether)</option>
                 <option value="USDC">USDC (USD Coin)</option>
@@ -93,7 +93,7 @@ export default function CryptoPage() {
                 required
                 min="1"
                 step="0.01"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="100.00"
               />
             </div>
@@ -105,7 +105,7 @@ export default function CryptoPage() {
               <select
                 value={formData.purpose}
                 onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="SCHOOL_FEES">School Fees</option>
                 <option value="ACCOMMODATION">Accommodation</option>
@@ -122,7 +122,7 @@ export default function CryptoPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Payment details..."
               />
             </div>
