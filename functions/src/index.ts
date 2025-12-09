@@ -6,6 +6,13 @@ import cors from 'cors';
 // Initialize Firebase Admin FIRST (before importing routes)
 admin.initializeApp();
 
+// Runtime options for Cloud Functions
+const runtimeOpts: functions.RuntimeOptions = {
+  timeoutSeconds: 540,
+  memory: '512MB',
+  maxInstances: 100,
+};
+
 // Import routes (these files use admin.firestore() at module level)
 import authRoutes from './routes/auth';
 import rrrRoutes from './routes/rrr';
@@ -51,11 +58,15 @@ app.get('/', (req, res) => {
   });
 });
 
-// Export Express app as Firebase Function
-export const api = functions.https.onRequest(app);
+// Export Express app as Firebase Function with runtime options
+export const api = functions
+  .runWith(runtimeOpts)
+  .https.onRequest(app);
 
 // Background functions for async tasks
-export const processReceipt = functions.firestore
+export const processReceipt = functions
+  .runWith({ ...runtimeOpts, timeoutSeconds: 60 })
+  .firestore
   .document('payments/{paymentId}')
   .onCreate(async (snap, context) => {
     const payment = snap.data();
@@ -67,7 +78,9 @@ export const processReceipt = functions.firestore
     }
   });
 
-export const sendNotificationEmail = functions.firestore
+export const sendNotificationEmail = functions
+  .runWith({ ...runtimeOpts, timeoutSeconds: 60 })
+  .firestore
   .document('notifications/{notificationId}')
   .onCreate(async (snap, context) => {
     const notification = snap.data();
@@ -90,7 +103,9 @@ export const sendNotificationEmail = functions.firestore
     }
   });
 
-export const checkLoanDefaults = functions.pubsub
+export const checkLoanDefaults = functions
+  .runWith({ ...runtimeOpts, timeoutSeconds: 300 })
+  .pubsub
   .schedule('every 24 hours')
   .onRun(async (context) => {
     const db = admin.firestore();
