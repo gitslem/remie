@@ -39,7 +39,7 @@ interface Activity {
   type: string;
   description: string;
   amount?: number;
-  status: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'ACTIVE' | 'PAID' | 'INITIATED' | 'SUSPENDED' | 'BLOCKED';
   createdAt: string;
 }
 
