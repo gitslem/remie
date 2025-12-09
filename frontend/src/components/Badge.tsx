@@ -4,12 +4,14 @@ interface BadgeProps {
   children: React.ReactNode;
   variant?: 'success' | 'warning' | 'error' | 'info' | 'default';
   size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
   children,
   variant = 'default',
   size = 'md',
+  className = '',
 }) => {
   const variantClasses = {
     success: 'bg-green-100 text-green-800',
@@ -27,7 +29,7 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center font-medium rounded-full ${variantClasses[variant]} ${sizeClasses[size]}`}
+      className={`inline-flex items-center font-medium rounded-full ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
     >
       {children}
     </span>
@@ -43,7 +45,13 @@ interface StatusBadgeProps {
     | 'CANCELLED'
     | 'ACTIVE'
     | 'PAID'
-    | 'INITIATED';
+    | 'INITIATED'
+    | 'SUSPENDED'
+    | 'BLOCKED'
+    | 'DEFAULTED'
+    | 'REJECTED'
+    | 'EXPIRED'
+    | 'REVERSED';
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
@@ -56,6 +64,12 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     ACTIVE: { variant: 'success' as const, label: 'Active' },
     PAID: { variant: 'success' as const, label: 'Paid' },
     INITIATED: { variant: 'info' as const, label: 'Initiated' },
+    SUSPENDED: { variant: 'warning' as const, label: 'Suspended' },
+    BLOCKED: { variant: 'error' as const, label: 'Blocked' },
+    DEFAULTED: { variant: 'error' as const, label: 'Defaulted' },
+    REJECTED: { variant: 'error' as const, label: 'Rejected' },
+    EXPIRED: { variant: 'error' as const, label: 'Expired' },
+    REVERSED: { variant: 'warning' as const, label: 'Reversed' },
   };
 
   const config = statusConfig[status] || { variant: 'default' as const, label: status };
