@@ -5,6 +5,7 @@ import { authenticate } from './auth';
 const router = Router();
 const db = admin.firestore();
 
+// Version 1.0.1 - Force redeploy with proper error handling
 // Initialize wallet if it doesn't exist
 const ensureWalletExists = async (userId: string) => {
   const walletRef = db.collection('wallets').doc(userId);
