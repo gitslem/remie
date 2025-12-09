@@ -46,11 +46,11 @@ router.get('/', authenticate, async (req: Request, res: Response): Promise<void>
   }
 });
 
-// Fund wallet
+// Fund wallet - Initialize Paystack payment
 router.post('/fund', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { uid } = (req as any).user;
-    const { amount, paymentMethod, reference } = req.body;
+    const { uid, email } = (req as any).user;
+    const { amount, callbackUrl } = req.body;
 
     if (!amount || amount <= 0 || amount > 500000) {
       res.status(400).json({
@@ -60,24 +60,115 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
       return;
     }
 
-    if (!paymentMethod || !reference) {
+    // Ensure wallet exists
+    await ensureWalletExists(uid);
+
+    // Generate unique reference
+    const reference = `REMIE_${uid}_${Date.now()}`;
+
+    // Create pending payment record
+    await db.collection('payments').doc(reference).set({
+      userId: uid,
+      type: 'WALLET_FUNDING',
+      amount,
+      reference,
+      status: 'PENDING',
+      description: 'Wallet funding',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Initialize Paystack payment
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!paystackSecretKey) {
+      throw new Error('Paystack not configured');
+    }
+
+    const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${paystackSecretKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email || `${uid}@remiepay.com`,
+        amount: amount * 100, // Convert to kobo
+        reference,
+        callback_url: callbackUrl || `${process.env.FRONTEND_URL}/dashboard/wallet?verify=${reference}`,
+      }),
+    });
+
+    const paystackData = await paystackResponse.json();
+
+    if (!paystackData.status) {
+      throw new Error(paystackData.message || 'Payment initialization failed');
+    }
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Payment initialized',
+      data: {
+        authorizationUrl: paystackData.data.authorization_url,
+        accessCode: paystackData.data.access_code,
+        reference: paystackData.data.reference,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+});
+
+// Verify wallet funding
+router.get('/verify/:reference', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { uid } = (req as any).user;
+    const { reference } = req.params;
+
+    // Verify with Paystack
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+    if (!paystackSecretKey) {
+      throw new Error('Paystack not configured');
+    }
+
+    const paystackResponse = await fetch(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${paystackSecretKey}`,
+        },
+      }
+    );
+
+    const paystackData = await paystackResponse.json();
+
+    if (!paystackData.status || paystackData.data.status !== 'success') {
       res.status(400).json({
         status: 'error',
-        message: 'Payment method and reference are required',
+        message: 'Payment verification failed',
       });
       return;
     }
 
-    // Ensure wallet exists
-    await ensureWalletExists(uid);
+    const amount = paystackData.data.amount / 100; // Convert from kobo to naira
 
-    // Use transaction for atomic operation
-    const result = await db.runTransaction(async (transaction) => {
+    // Update wallet and payment record in a transaction
+    await db.runTransaction(async (transaction) => {
       const walletRef = db.collection('wallets').doc(uid);
-      const walletDoc = await transaction.get(walletRef);
+      const paymentRef = db.collection('payments').doc(reference);
 
-      if (!walletDoc.exists) {
-        throw new Error('Wallet not found');
+      const paymentDoc = await transaction.get(paymentRef);
+
+      if (!paymentDoc.exists) {
+        throw new Error('Payment record not found');
+      }
+
+      const payment = paymentDoc.data();
+
+      if (payment?.status === 'COMPLETED') {
+        throw new Error('Payment already verified');
       }
 
       // Update wallet balance
@@ -87,27 +178,17 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      // Create payment record
-      const paymentRef = db.collection('payments').doc();
-      transaction.set(paymentRef, {
-        userId: uid,
-        type: 'WALLET_FUNDING',
-        amount,
-        paymentMethod,
-        reference,
+      // Update payment status
+      transaction.update(paymentRef, {
         status: 'COMPLETED',
-        description: 'Wallet funding',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
         completedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-
-      return { paymentId: paymentRef.id, reference };
     });
 
-    res.status(201).json({
+    res.status(200).json({
       status: 'success',
-      message: 'Wallet funded successfully',
-      data: result,
+      message: 'Payment verified and wallet funded',
+      data: { amount, reference },
     });
   } catch (error: any) {
     res.status(500).json({
@@ -219,6 +300,75 @@ router.get('/transactions', authenticate, async (req: Request, res: Response): P
     res.status(200).json({
       status: 'success',
       data: { transactions: payments },
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+});
+
+// Get Nigerian banks list
+router.get('/banks', async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Return list of major Nigerian banks
+    const banks = [
+      { name: 'Access Bank', code: '044', slug: 'access-bank' },
+      { name: 'Citibank Nigeria', code: '023', slug: 'citibank-nigeria' },
+      { name: 'Ecobank Nigeria', code: '050', slug: 'ecobank-nigeria' },
+      { name: 'Fidelity Bank', code: '070', slug: 'fidelity-bank' },
+      { name: 'First Bank of Nigeria', code: '011', slug: 'first-bank-of-nigeria' },
+      { name: 'First City Monument Bank', code: '214', slug: 'first-city-monument-bank' },
+      { name: 'Guaranty Trust Bank', code: '058', slug: 'guaranty-trust-bank' },
+      { name: 'Heritage Banking Company Ltd.', code: '030', slug: 'heritage-bank' },
+      { name: 'Keystone Bank', code: '082', slug: 'keystone-bank' },
+      { name: 'Polaris Bank', code: '076', slug: 'polaris-bank' },
+      { name: 'Providus Bank', code: '101', slug: 'providus-bank' },
+      { name: 'Stanbic IBTC Bank', code: '221', slug: 'stanbic-ibtc-bank' },
+      { name: 'Standard Chartered Bank', code: '068', slug: 'standard-chartered-bank' },
+      { name: 'Sterling Bank', code: '232', slug: 'sterling-bank' },
+      { name: 'Union Bank of Nigeria', code: '032', slug: 'union-bank-of-nigeria' },
+      { name: 'United Bank For Africa', code: '033', slug: 'united-bank-for-africa' },
+      { name: 'Unity Bank', code: '215', slug: 'unity-bank' },
+      { name: 'Wema Bank', code: '035', slug: 'wema-bank' },
+      { name: 'Zenith Bank', code: '057', slug: 'zenith-bank' },
+    ];
+
+    res.status(200).json({
+      status: 'success',
+      data: banks,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+    });
+  }
+});
+
+// Resolve bank account name
+router.post('/resolve-account', authenticate, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { accountNumber, bankCode } = req.body;
+
+    if (!accountNumber || !bankCode) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Account number and bank code are required',
+      });
+      return;
+    }
+
+    // TODO: Integrate with Paystack to resolve account
+    // For now, return mock data
+    res.status(200).json({
+      status: 'success',
+      data: {
+        accountNumber,
+        accountName: 'Mock Account Name',
+        bankCode,
+      },
     });
   } catch (error: any) {
     res.status(500).json({

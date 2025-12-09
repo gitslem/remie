@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { auth } from './firebase';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
@@ -12,12 +13,20 @@ const api: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add Firebase ID token
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    try {
+      // Get current Firebase user and ID token
+      const user = auth?.currentUser;
+      if (user) {
+        const token = await user.getIdToken();
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get Firebase ID token:', error);
     }
     return config;
   },
@@ -30,7 +39,6 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Redirect to login if unauthorized
-      localStorage.removeItem('token');
       window.location.href = '/auth/login';
     }
     return Promise.reject(error);
