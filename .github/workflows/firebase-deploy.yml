@@ -49,41 +49,16 @@ jobs:
           cd frontend
           npm run build
 
-      - name: Setup Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Configure Service Account
+      - name: Setup Firebase Service Account
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $HOME/firebase-service-account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
 
-          # Verify service account has necessary permissions
-          echo "Verifying service account permissions..."
-          gcloud auth activate-service-account --key-file=$HOME/firebase-service-account.json
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
 
-          # Set the project
-          gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
-
-          # Grant Service Account User role if not already granted
-          PROJECT_NUMBER=$(gcloud projects describe ${{ secrets.FIREBASE_PROJECT_ID }} --format="value(projectNumber)")
-          SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-
-          echo "Granting necessary IAM permissions..."
-          gcloud projects add-iam-policy-binding ${{ secrets.FIREBASE_PROJECT_ID }} \
-            --member="serviceAccount:${SERVICE_ACCOUNT}" \
-            --role="roles/iam.serviceAccountUser" \
-            --condition=None || echo "Permission may already exist"
-
-          # Also grant to the Firebase Admin SDK service account
-          FIREBASE_SA="firebase-adminsdk@${{ secrets.FIREBASE_PROJECT_ID }}.iam.gserviceaccount.com"
-          gcloud projects add-iam-policy-binding ${{ secrets.FIREBASE_PROJECT_ID }} \
-            --member="serviceAccount:${FIREBASE_SA}" \
-            --role="roles/iam.serviceAccountUser" \
-            --condition=None || echo "Permission may already exist"
-
-      - name: Deploy to Firebase (Hosting + Functions)
+      - name: Deploy to Firebase
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
           cp $HOME/firebase-service-account.json ${{ github.workspace }}/firebase-service-account.json
-          firebase deploy --only hosting,functions --project ${{ secrets.FIREBASE_PROJECT_ID }} --non-interactive --force
+          firebase deploy --only hosting,functions --project ${{ secrets.FIREBASE_PROJECT_ID }} --non-interactive
