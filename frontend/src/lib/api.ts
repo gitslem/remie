@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { auth } from './firebase';
+import { auth as firebaseAuth } from './firebase';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
@@ -18,7 +18,7 @@ api.interceptors.request.use(
   async (config) => {
     try {
       // Get current Firebase user and ID token
-      const user = auth?.currentUser;
+      const user = firebaseAuth?.currentUser;
       if (user) {
         const token = await user.getIdToken();
         if (token && config.headers) {
