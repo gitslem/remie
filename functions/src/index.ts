@@ -18,36 +18,9 @@ admin.initializeApp();
 // Create Express app
 const app = express();
 
-// CORS Configuration - Allow specific origins
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'https://remiepay.web.app',
-  'https://remiepay.firebaseapp.com',
-];
-
-// Middleware
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(null, true); // Allow all origins in production (Firebase already handles security)
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400, // 24 hours
-}));
-
-// Handle OPTIONS requests explicitly
-app.options('*', cors());
+// CORS Configuration - Firebase Cloud Functions recommended pattern
+// This allows all origins which is safe because Firebase handles authentication
+app.use(cors({ origin: true }));
 
 app.use(express.json());
 
