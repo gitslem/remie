@@ -160,7 +160,7 @@ export default function WalletPage() {
                   value={fundAmount}
                   onChange={(e) => setFundAmount(e.target.value)}
                   placeholder="Enter amount"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                   min="1"
                   step="0.01"
