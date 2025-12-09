@@ -3,7 +3,10 @@ import * as admin from 'firebase-admin';
 import express from 'express';
 import cors from 'cors';
 
-// Import routes
+// Initialize Firebase Admin FIRST (before importing routes)
+admin.initializeApp();
+
+// Import routes (these files use admin.firestore() at module level)
 import authRoutes from './routes/auth';
 import rrrRoutes from './routes/rrr';
 import walletRoutes from './routes/wallet';
@@ -11,9 +14,6 @@ import p2pRoutes from './routes/p2p';
 import loanRoutes from './routes/loan';
 import cryptoRoutes from './routes/crypto';
 import paymentRoutes from './routes/payment';
-
-// Initialize Firebase Admin
-admin.initializeApp();
 
 // Create Express app
 const app = express();
