@@ -51,8 +51,11 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Create API router to mount all routes under /api
+const apiRouter = express.Router();
+
 // Health check
-app.get('/health', (req, res) => {
+apiRouter.get('/health', (req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'REMIE API is running',
@@ -61,22 +64,25 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/auth', authRoutes);
-app.use('/rrr', rrrRoutes);
-app.use('/wallet', walletRoutes);
-app.use('/p2p', p2pRoutes);
-app.use('/loans', loanRoutes);
-app.use('/crypto', cryptoRoutes);
-app.use('/payments', paymentRoutes);
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/rrr', rrrRoutes);
+apiRouter.use('/wallet', walletRoutes);
+apiRouter.use('/p2p', p2pRoutes);
+apiRouter.use('/loans', loanRoutes);
+apiRouter.use('/crypto', cryptoRoutes);
+apiRouter.use('/payments', paymentRoutes);
 
 // API info
-app.get('/', (req, res) => {
+apiRouter.get('/', (req, res) => {
   res.json({
     message: 'Welcome to REMIE API',
     version: '1.0.0',
     documentation: '/docs',
   });
 });
+
+// Mount API router under /api prefix
+app.use('/api', apiRouter);
 
 // Export Express app as Firebase Function with runtime options
 export const api = functions
