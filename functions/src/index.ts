@@ -34,20 +34,20 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/rrr', rrrRoutes);
-app.use('/api/v1/wallet', walletRoutes);
-app.use('/api/v1/p2p', p2pRoutes);
-app.use('/api/v1/loans', loanRoutes);
-app.use('/api/v1/crypto', cryptoRoutes);
-app.use('/api/v1/payments', paymentRoutes);
+app.use('/auth', authRoutes);
+app.use('/rrr', rrrRoutes);
+app.use('/wallet', walletRoutes);
+app.use('/p2p', p2pRoutes);
+app.use('/loans', loanRoutes);
+app.use('/crypto', cryptoRoutes);
+app.use('/payments', paymentRoutes);
 
 // API info
-app.get('/api/v1', (req, res) => {
+app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to REMIE API',
     version: '1.0.0',
-    documentation: '/api/docs',
+    documentation: '/docs',
   });
 });
 
