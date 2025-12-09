@@ -45,9 +45,9 @@ service cloud.firestore {
                     walletId == request.auth.uid &&
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.balance >= 0;
-      // Allow updates only through Cloud Functions or admin
-      // Users cannot directly update their wallet balance
-      allow update: if false;
+      // Allow updates only through Cloud Functions (Admin SDK bypasses these rules)
+      // Client SDK updates are blocked for security
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -55,13 +55,10 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow read: if isAuthenticated() &&
                   (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() &&
-                    request.resource.data.userId == request.auth.uid &&
-                    request.resource.data.amount > 0 &&
-                    hasRequiredFields(['userId', 'amount', 'status', 'createdAt']);
+      allow create: if isAuthenticated() || isAdmin();
       allow update: if isAuthenticated() &&
-                    (resource.data.userId == request.auth.uid || isAdmin()) &&
-                    !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'amount', 'createdAt']);
+                    (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
 
     // RRR Payments
