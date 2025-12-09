@@ -2,8 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { wallet as walletApi } from '@/lib/api';
 import Link from 'next/link';
 
 export default function DashboardPage() {
@@ -25,43 +24,27 @@ export default function DashboardPage() {
   }, [user]);
 
   const fetchDashboardData = async () => {
-    if (!db || !user) {
+    if (!user) {
       setLoading(false);
       return;
     }
     try {
-      // Fetch wallet
-      const walletDoc = await getDoc(doc(db, 'wallets', user.uid));
-      if (walletDoc.exists()) {
-        setWallet(walletDoc.data());
+      // Fetch wallet via API
+      const walletResponse = await walletApi.getBalance();
+      if (walletResponse.data?.data) {
+        setWallet(walletResponse.data.data);
       }
 
-      // Fetch recent P2P transactions
-      const transactionsQuery = query(
-        collection(db, 'p2pTransfers'),
-        where('senderId', '==', user!.uid),
-        orderBy('createdAt', 'desc'),
-        limit(5)
-      );
-      const transactionsSnapshot = await getDocs(transactionsQuery);
-      const transactions = transactionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRecentTransactions(transactions);
-
-      // Fetch stats (simplified for now)
-      const loansQuery = query(
-        collection(db, 'loans'),
-        where('userId', '==', user!.uid),
-        where('status', '==', 'ACTIVE')
-      );
-      const loansSnapshot = await getDocs(loansQuery);
+      // Fetch recent transactions via API
+      const transactionsResponse = await walletApi.getTransactions(1, 5);
+      if (transactionsResponse.data?.data?.transactions) {
+        setRecentTransactions(transactionsResponse.data.data.transactions);
+      }
 
       setStats({
         totalSpent: 0,
         totalReceived: 0,
-        activeLoans: loansSnapshot.size,
+        activeLoans: 0,
         pendingPayments: 0,
       });
     } catch (error) {
