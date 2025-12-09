@@ -539,7 +539,7 @@ export default function Home() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
                   <input
                     type="text"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                    className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition placeholder:text-gray-400"
                     placeholder="John Doe"
                   />
                 </div>
@@ -547,7 +547,7 @@ export default function Home() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
                   <input
                     type="email"
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                    className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition placeholder:text-gray-400"
                     placeholder="john@example.com"
                   />
                 </div>
@@ -555,7 +555,7 @@ export default function Home() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Message</label>
                   <textarea
                     rows={5}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
+                    className="w-full px-4 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none placeholder:text-gray-400"
                     placeholder="How can we help you?"
                   />
                 </div>
@@ -685,7 +685,7 @@ function PricingCard({ title, price, period, features, highlighted }: { title: s
       )}
       <h3 className={`text-2xl font-bold mb-2 ${highlighted ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
       <div className="mb-6">
-        <span className="text-5xl font-bold">{price}</span>
+        <span className={`text-5xl font-bold ${highlighted ? 'text-white' : 'text-gray-900'}`}>{price}</span>
         {period && <span className={`text-sm ml-2 ${highlighted ? 'text-indigo-100' : 'text-gray-600'}`}>{period}</span>}
       </div>
       <ul className="space-y-4 mb-8">
@@ -694,7 +694,7 @@ function PricingCard({ title, price, period, features, highlighted }: { title: s
             <svg className={`w-6 h-6 flex-shrink-0 ${highlighted ? 'text-white' : 'text-green-500'}`} fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span className="text-left">{feature}</span>
+            <span className={`text-left ${highlighted ? 'text-white' : 'text-gray-900'}`}>{feature}</span>
           </li>
         ))}
       </ul>
