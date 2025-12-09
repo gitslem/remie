@@ -38,16 +38,27 @@ service cloud.firestore {
     }
 
     // Wallets collection
+    // NOTE: Cloud Functions using Firebase Admin SDK bypass these rules entirely.
+    // These rules only apply to client-side access from web/mobile apps.
     match /wallets/{walletId} {
+      // Users can read their own wallet, admins can read all wallets
       allow read: if isAuthenticated() &&
                   (walletId == request.auth.uid || isAdmin());
+
+      // Wallet creation through API only (via Cloud Functions)
+      // The create rule here is for backwards compatibility, but new wallets
+      // should be created via /auth/create-profile API endpoint
       allow create: if isAuthenticated() &&
                     walletId == request.auth.uid &&
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.balance >= 0;
-      // Allow updates only through Cloud Functions or admin
-      // Users cannot directly update their wallet balance
+
+      // Wallet updates are NOT allowed from client-side code
+      // All balance updates must go through Cloud Functions APIs which use Admin SDK
+      // (fund, withdraw, p2p, etc. endpoints)
       allow update: if false;
+
+      // Only admins can delete wallets
       allow delete: if isAdmin();
     }
 

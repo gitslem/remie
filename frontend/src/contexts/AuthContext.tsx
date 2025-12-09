@@ -10,8 +10,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
@@ -54,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
-    if (!auth || !db) {
+    if (!auth) {
       toast.error('Firebase not initialized');
       throw new Error('Firebase not initialized');
     }
@@ -67,23 +66,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName: `${firstName} ${lastName}`,
       });
 
-      // Create user document in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        email,
-        firstName,
-        lastName,
-        createdAt: new Date().toISOString(),
-        emailVerified: false,
+      // Create user profile via API (which has proper permissions)
+      const token = await user.getIdToken();
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+
+      const response = await fetch(`${apiUrl}/auth/create-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          phoneNumber: '',
+          studentId: '',
+          institution: '',
+        }),
       });
 
-      // Create initial wallet
-      await setDoc(doc(db, 'wallets', user.uid), {
-        userId: user.uid,
-        balance: 0,
-        currency: 'NGN',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create profile');
+      }
 
       toast.success('Account created successfully!');
       router.push('/dashboard');
@@ -92,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? 'Email already in use'
         : error.code === 'auth/weak-password'
         ? 'Password should be at least 6 characters'
-        : 'Failed to create account';
+        : error.message || 'Failed to create account';
       toast.error(errorMessage);
       throw error;
     }
