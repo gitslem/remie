@@ -25,11 +25,31 @@ import paymentRoutes from './routes/payment';
 // Create Express app
 const app = express();
 
-// CORS Configuration - Firebase Cloud Functions recommended pattern
-// This allows all origins which is safe because Firebase handles authentication
-app.use(cors({ origin: true }));
+// CORS Configuration - Comprehensive setup for Cloud Functions
+const corsOptions = {
+  origin: true, // Allows all origins (Firebase Hosting will be whitelisted)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  preflightContinue: false,
+};
 
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Explicitly handle OPTIONS requests for all routes
+app.options('*', cors(corsOptions));
+
+// Body parser middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/health', (req, res) => {
