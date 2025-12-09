@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/**
   workflow_dispatch:
 
 jobs:
@@ -61,4 +60,4 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
         run: |
           cp $HOME/firebase-service-account.json ${{ github.workspace }}/firebase-service-account.json
-          firebase deploy --only hosting,functions:api,functions:processReceipt,functions:sendNotificationEmail,firestore:indexes --project ${{ secrets.FIREBASE_PROJECT_ID }} --non-interactive
+          firebase deploy --only hosting,functions:api,functions:processReceipt,functions:sendNotificationEmail --project ${{ secrets.FIREBASE_PROJECT_ID }} --non-interactive
