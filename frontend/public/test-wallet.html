@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wallet API Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ccc;
+        }
+        .test.success {
+            border-left-color: #22c55e;
+        }
+        .test.error {
+            border-left-color: #ef4444;
+        }
+        .test.pending {
+            border-left-color: #f59e0b;
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4338ca;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .status {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Wallet API Diagnostic Tool</h1>
+    <p>This will test if your wallet API is deployed and working.</p>
+
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="location.reload()">Reset</button>
+
+    <div id="results"></div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBCcowICMRhHbkLSXuCuVC-x8cNv2vDkGY",
+            authDomain: "remiepay.firebaseapp.com",
+            projectId: "remiepay",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        window.auth = auth;
+
+        async function addResult(title, status, details) {
+            const div = document.createElement('div');
+            div.className = `test ${status}`;
+            div.innerHTML = `
+                <div class="status">${status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳'} ${title}</div>
+                <pre>${JSON.stringify(details, null, 2)}</pre>
+            `;
+            document.getElementById('results').appendChild(div);
+        }
+
+        window.runAllTests = async function() {
+            document.getElementById('results').innerHTML = '';
+
+            // Test 1: Check if user is logged in
+            const user = auth.currentUser;
+            if (!user) {
+                addResult('Authentication', 'error', {
+                    error: 'No user logged in',
+                    solution: 'Please log in first, then come back to this page'
+                });
+                return;
+            }
+
+            addResult('Authentication', 'success', {
+                email: user.email,
+                uid: user.uid
+            });
+
+            // Test 2: Check API base URL
+            const apiUrl = '/api';
+            addResult('API URL', 'pending', { url: apiUrl });
+
+            // Test 3: Test banks endpoint (doesn't require auth)
+            try {
+                const banksResponse = await fetch(`${apiUrl}/wallet/banks`);
+                const banksData = await banksResponse.json();
+
+                if (banksData.success) {
+                    addResult('Banks API (No Auth)', 'success', {
+                        banks: banksData.data.length + ' banks loaded',
+                        sample: banksData.data.slice(0, 3)
+                    });
+                } else {
+                    addResult('Banks API (No Auth)', 'error', banksData);
+                }
+            } catch (error) {
+                addResult('Banks API (No Auth)', 'error', {
+                    error: error.message,
+                    solution: 'Functions may not be deployed'
+                });
+            }
+
+            // Test 4: Test wallet endpoint (requires auth)
+            try {
+                const token = await user.getIdToken();
+                const walletResponse = await fetch(`${apiUrl}/wallet`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const walletData = await walletResponse.json();
+
+                if (walletData.success) {
+                    addResult('Wallet API (With Auth)', 'success', {
+                        balance: walletData.data.balance,
+                        currency: walletData.data.currency,
+                        status: walletData.data.isFrozen ? 'Frozen' : 'Active'
+                    });
+                } else {
+                    addResult('Wallet API (With Auth)', 'error', walletData);
+                }
+            } catch (error) {
+                addResult('Wallet API (With Auth)', 'error', {
+                    error: error.message,
+                    solution: 'Check if Functions are deployed and Firestore is accessible'
+                });
+            }
+
+            // Test 5: Check Firestore Rules
+            addResult('Firestore Rules', 'pending', {
+                note: 'Firebase Functions using Admin SDK bypass Firestore rules',
+                important: 'The PERMISSION_DENIED error is likely because Functions are not deployed or not using Admin SDK correctly'
+            });
+
+            // Summary
+            addResult('Summary', 'pending', {
+                nextSteps: [
+                    '1. If Banks API failed: Deploy Functions (firebase deploy --only functions)',
+                    '2. If Wallet API failed: Set Paystack key (firebase functions:config:set paystack.secret_key="sk_test_...")',
+                    '3. If both work: Your wallet should work! Try funding on /dashboard/wallet',
+                    '4. If permission error persists: Check Functions logs in Firebase Console'
+                ]
+            });
+        }
+    </script>
+</body>
+</html>
