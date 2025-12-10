@@ -2,12 +2,10 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export default function LoansPage() {
   const { user } = useAuth();
@@ -27,17 +25,19 @@ export default function LoansPage() {
   }, [user]);
 
   const fetchLoans = async () => {
-    if (!db || !user) return;
+    if (!user) return;
     try {
-      const loansQuery = query(
-        collection(db, 'loans'),
-        where('userId', '==', user.uid)
-      );
-      const snapshot = await getDocs(loansQuery);
-      const loansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLoans(loansData);
+      const token = await user.getIdToken();
+      const response = await axios.get(`${API_URL}/loans`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data) {
+        setLoans(response.data.data || response.data);
+      }
     } catch (error) {
       console.error('Error fetching loans:', error);
+      toast.error('Failed to load loans');
     }
   };
 

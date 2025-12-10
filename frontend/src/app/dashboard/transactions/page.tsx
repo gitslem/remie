@@ -2,8 +2,6 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 export default function TransactionsPage() {
   const { user } = useAuth();
@@ -18,51 +16,27 @@ export default function TransactionsPage() {
   }, [user]);
 
   const fetchTransactions = async () => {
-    if (!db || !user) {
+    if (!user) {
       setLoading(false);
       return;
     }
     try {
-      const allTransactions: any[] = [];
+      const token = await user.getIdToken();
 
-      // Fetch P2P transfers (sent)
-      const p2pQuery = query(
-        collection(db, 'p2pTransfers'),
-        where('senderId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-      const p2pSnapshot = await getDocs(p2pQuery);
-      p2pSnapshot.forEach(doc => {
-        allTransactions.push({
-          id: doc.id,
-          type: 'P2P_SENT',
-          ...doc.data()
-        });
+      // Fetch wallet transactions via API
+      const response = await fetch('/api/wallet/transactions?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
-      // Fetch RRR payments
-      const rrrQuery = query(
-        collection(db, 'rrrPayments'),
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
-      );
-      const rrrSnapshot = await getDocs(rrrQuery);
-      rrrSnapshot.forEach(doc => {
-        allTransactions.push({
-          id: doc.id,
-          type: 'RRR',
-          ...doc.data()
-        });
-      });
+      const data = await response.json();
 
-      // Sort by date
-      allTransactions.sort((a, b) => {
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA;
-      });
-
-      setTransactions(allTransactions);
+      if (data.success) {
+        setTransactions(data.data || []);
+      } else {
+        console.error('Failed to fetch transactions:', data.message);
+      }
     } catch (error) {
       console.error('Error fetching transactions:', error);
     } finally {
