@@ -7,7 +7,8 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 import Link from 'next/link';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Fallback to '/api' for production (Firebase hosting rewrites)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 interface WalletData {
   balance: number;
@@ -79,14 +80,30 @@ export default function WalletPage() {
 
   const fetchWallet = async () => {
     try {
-      const token = await user?.getIdToken();
+      if (!user) {
+        console.error('No user found');
+        setLoading(false);
+        return;
+      }
+
+      const token = await user.getIdToken();
+      console.log('Fetching wallet from:', `${API_URL}/wallet`);
+
       const response = await axios.get(`${API_URL}/wallet`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setWallet(response.data.data);
+
+      console.log('Wallet response:', response.data);
+
+      if (response.data.success && response.data.data) {
+        setWallet(response.data.data);
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error: any) {
       console.error('Error fetching wallet:', error);
-      toast.error('Failed to load wallet');
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to load wallet';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -94,26 +111,49 @@ export default function WalletPage() {
 
   const fetchTransactions = async () => {
     try {
-      const token = await user?.getIdToken();
+      if (!user) return;
+
+      const token = await user.getIdToken();
       const response = await axios.get(`${API_URL}/wallet/transactions`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { page: 1, limit: 10 },
       });
-      setTransactions(response.data.data || []);
-    } catch (error) {
+
+      console.log('Transactions response:', response.data);
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setTransactions(response.data.data);
+      } else {
+        setTransactions([]);
+      }
+    } catch (error: any) {
       console.error('Error fetching transactions:', error);
+      setTransactions([]);
     }
   };
 
   const fetchBanks = async () => {
     try {
-      const token = await user?.getIdToken();
-      const response = await axios.get(`${API_URL}/wallet/banks`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setBanks(response.data.data || []);
-    } catch (error) {
+      // Banks endpoint doesn't require auth in Firebase Functions
+      const response = await axios.get(`${API_URL}/wallet/banks`);
+
+      console.log('Banks response:', response.data);
+
+      if (response.data.success && Array.isArray(response.data.data)) {
+        setBanks(response.data.data);
+      } else {
+        setBanks([]);
+      }
+    } catch (error: any) {
       console.error('Error fetching banks:', error);
+      // Use fallback banks if API fails
+      setBanks([
+        { id: 1, name: 'Access Bank', code: '044' },
+        { id: 2, name: 'GTBank', code: '058' },
+        { id: 3, name: 'Zenith Bank', code: '057' },
+        { id: 4, name: 'First Bank', code: '011' },
+        { id: 5, name: 'UBA', code: '033' },
+      ]);
     }
   };
 
@@ -131,11 +171,18 @@ export default function WalletPage() {
       return;
     }
 
+    if (!user) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
     setFundingWallet(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = await user.getIdToken();
       const callbackUrl = `${window.location.origin}/dashboard/wallet`;
+
+      console.log('Initiating payment:', { amount, callbackUrl, url: `${API_URL}/wallet/fund` });
 
       const response = await axios.post(
         `${API_URL}/wallet/fund`,
@@ -143,23 +190,38 @@ export default function WalletPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const { authorizationUrl } = response.data.data;
+      console.log('Fund wallet response:', response.data);
 
-      // Redirect to Paystack
-      window.location.href = authorizationUrl;
+      if (response.data.success && response.data.data?.authorizationUrl) {
+        // Redirect to Paystack
+        window.location.href = response.data.data.authorizationUrl;
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error: any) {
       console.error('Error initiating payment:', error);
-      toast.error(error.response?.data?.message || 'Failed to initiate payment');
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to initiate payment';
+      toast.error(errorMsg);
       setFundingWallet(false);
     }
   };
 
   const verifyPayment = async (reference: string) => {
     try {
-      const token = await user?.getIdToken();
+      if (!user) {
+        console.error('No user for payment verification');
+        router.replace('/dashboard/wallet');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      console.log('Verifying payment:', reference);
+
       const response = await axios.get(`${API_URL}/wallet/verify/${reference}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      console.log('Verify payment response:', response.data);
 
       if (response.data.success) {
         toast.success('Wallet funded successfully!');
@@ -168,11 +230,13 @@ export default function WalletPage() {
         // Remove reference from URL
         router.replace('/dashboard/wallet');
       } else {
-        toast.error('Payment verification failed');
+        toast.error(response.data.message || 'Payment verification failed');
+        router.replace('/dashboard/wallet');
       }
     } catch (error: any) {
       console.error('Error verifying payment:', error);
-      toast.error(error.response?.data?.message || 'Payment verification failed');
+      const errorMsg = error.response?.data?.message || error.message || 'Payment verification failed';
+      toast.error(errorMsg);
       router.replace('/dashboard/wallet');
     }
   };
@@ -188,10 +252,16 @@ export default function WalletPage() {
       return;
     }
 
+    if (!user) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
     setVerifyingAccount(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = await user.getIdToken();
+      console.log('Verifying account:', { accountNumber: withdrawData.accountNumber, bankCode: withdrawData.bankCode });
       const response = await axios.post(
         `${API_URL}/wallet/resolve-account`,
         {
@@ -201,12 +271,19 @@ export default function WalletPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const { account_name } = response.data.data;
-      setWithdrawData({ ...withdrawData, accountName: account_name });
-      toast.success(`Account verified: ${account_name}`);
+      console.log('Account verification response:', response.data);
+
+      if (response.data.success && response.data.data?.account_name) {
+        const { account_name } = response.data.data;
+        setWithdrawData({ ...withdrawData, accountName: account_name });
+        toast.success(`Account verified: ${account_name}`);
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error: any) {
       console.error('Error verifying account:', error);
-      toast.error(error.response?.data?.message || 'Failed to verify account');
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to verify account';
+      toast.error(errorMsg);
     } finally {
       setVerifyingAccount(false);
     }
@@ -231,11 +308,23 @@ export default function WalletPage() {
       return;
     }
 
+    if (!user) {
+      toast.error('Please log in to continue');
+      return;
+    }
+
     setWithdrawing(true);
 
     try {
-      const token = await user?.getIdToken();
-      await axios.post(
+      const token = await user.getIdToken();
+
+      console.log('Initiating withdrawal:', {
+        amount,
+        accountNumber: withdrawData.accountNumber,
+        bankCode: withdrawData.bankCode,
+      });
+
+      const response = await axios.post(
         `${API_URL}/wallet/withdraw`,
         {
           amount,
@@ -249,7 +338,13 @@ export default function WalletPage() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      toast.success('Withdrawal initiated successfully!');
+      console.log('Withdrawal response:', response.data);
+
+      if (response.data.success) {
+        toast.success('Withdrawal initiated successfully! Funds will be sent to your account shortly.');
+      } else {
+        throw new Error(response.data.message || 'Withdrawal failed');
+      }
       setShowWithdrawModal(false);
       setWithdrawData({
         amount: '',
