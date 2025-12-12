@@ -14,6 +14,8 @@ const navigation = [
   { name: 'Microloans', href: '/dashboard/loans', icon: '📈' },
   { name: 'Crypto', href: '/dashboard/crypto', icon: '🔐' },
   { name: 'Transactions', href: '/dashboard/transactions', icon: '📝' },
+  { name: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
+  { name: 'Support', href: '/dashboard/support', icon: '💬' },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
