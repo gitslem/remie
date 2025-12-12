@@ -47,9 +47,15 @@ export default function P2PPage() {
       const response = await axios.get(`${API_URL}/wallet`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setWallet(response.data.data);
+      // Handle both data.data and direct data response
+      const walletData = response.data.data || response.data;
+      setWallet({
+        balance: walletData.balance || 0,
+        availableBalance: walletData.availableBalance || 0
+      });
     } catch (error) {
       console.error('Error fetching wallet:', error);
+      setWallet({ balance: 0, availableBalance: 0 });
     }
   };
 
