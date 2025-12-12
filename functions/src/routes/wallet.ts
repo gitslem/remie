@@ -202,11 +202,14 @@ router.get('/verify/:reference', authenticate, async (req: Request, res: Respons
     const { uid } = (req as any).user;
     const { reference } = req.params;
 
+    console.log(`[VERIFY] Starting verification for reference: ${reference}, user: ${uid}`);
+
     // Get payment record
     const paymentRef = db.collection('payments').doc(reference);
     const paymentDoc = await paymentRef.get();
 
     if (!paymentDoc.exists) {
+      console.log(`[VERIFY] Payment not found: ${reference}`);
       res.status(404).json({
         success: false,
         message: 'Payment not found',
@@ -216,7 +219,10 @@ router.get('/verify/:reference', authenticate, async (req: Request, res: Respons
 
     const payment = paymentDoc.data();
 
+    // Quick check before calling Paystack (optimization only, not for security)
     if (payment?.status === 'COMPLETED') {
+      console.log(`[VERIFY] Payment already completed (quick check): ${reference}`);
+      const walletDoc = await db.collection('wallets').doc(uid).get();
       res.status(200).json({
         success: true,
         message: 'Payment already processed',
@@ -225,15 +231,18 @@ router.get('/verify/:reference', authenticate, async (req: Request, res: Respons
             id: paymentDoc.id,
             ...payment,
           },
+          wallet: walletDoc.data(),
         },
       });
       return;
     }
 
     // Verify with Paystack
+    console.log(`[VERIFY] Calling Paystack API for: ${reference}`);
     const paystackData = await callPaystackAPI(`/transaction/verify/${reference}`);
 
     if (paystackData.data.status !== 'success') {
+      console.log(`[VERIFY] Paystack verification failed: ${reference}`);
       await paymentRef.update({
         status: 'FAILED',
         gatewayResponse: paystackData,
@@ -248,30 +257,91 @@ router.get('/verify/:reference', authenticate, async (req: Request, res: Respons
     }
 
     const amount = paystackData.data.amount / 100; // Convert from kobo to naira
+    console.log(`[VERIFY] Paystack verification successful. Amount: ₦${amount}`);
 
-    // Update wallet and payment record in a transaction
-    await db.runTransaction(async (transaction) => {
-      const walletRef = db.collection('wallets').doc(uid);
+    // CRITICAL: Update wallet and payment in atomic transaction with status check INSIDE
+    let walletData;
+    try {
+      await db.runTransaction(async (transaction) => {
+        // Read payment status INSIDE transaction for atomicity
+        const currentPaymentDoc = await transaction.get(paymentRef);
+        const currentPayment = currentPaymentDoc.data();
 
-      // Update wallet balance
-      transaction.update(walletRef, {
-        balance: admin.firestore.FieldValue.increment(amount),
-        availableBalance: admin.firestore.FieldValue.increment(amount),
-        ledgerBalance: admin.firestore.FieldValue.increment(amount),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Idempotency check - if already completed, abort transaction
+        if (currentPayment?.status === 'COMPLETED') {
+          console.log(`[VERIFY] Payment already completed (atomic check): ${reference}`);
+          throw new Error('ALREADY_PROCESSED');
+        }
+
+        console.log(`[VERIFY] Crediting wallet for user: ${uid}, amount: ₦${amount}`);
+
+        const walletRef = db.collection('wallets').doc(uid);
+
+        // Read current wallet balance for logging
+        const currentWallet = await transaction.get(walletRef);
+        const currentBalance = currentWallet.data()?.balance || 0;
+        console.log(`[VERIFY] Current balance: ₦${currentBalance}, New balance will be: ₦${currentBalance + amount}`);
+
+        // Update wallet balance
+        transaction.update(walletRef, {
+          balance: admin.firestore.FieldValue.increment(amount),
+          availableBalance: admin.firestore.FieldValue.increment(amount),
+          ledgerBalance: admin.firestore.FieldValue.increment(amount),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Update payment status
+        transaction.update(paymentRef, {
+          status: 'COMPLETED',
+          gatewayResponse: paystackData,
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Create audit trail entry
+        const auditRef = db.collection('wallet_audit').doc();
+        transaction.set(auditRef, {
+          walletId: uid,
+          userId: uid,
+          type: 'CREDIT',
+          amount,
+          previousBalance: currentBalance,
+          newBalance: currentBalance + amount,
+          reference,
+          paymentId: reference,
+          reason: 'Wallet funding via Paystack',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        console.log(`[VERIFY] Transaction completed successfully for: ${reference}`);
       });
-
-      // Update payment status
-      transaction.update(paymentRef, {
-        status: 'COMPLETED',
-        gatewayResponse: paystackData,
-        completedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    });
+    } catch (error: any) {
+      // If already processed, return success with current state
+      if (error.message === 'ALREADY_PROCESSED') {
+        console.log(`[VERIFY] Duplicate verification prevented for: ${reference}`);
+        const updatedPayment = await paymentRef.get();
+        const walletDoc = await db.collection('wallets').doc(uid).get();
+        res.status(200).json({
+          success: true,
+          message: 'Payment already processed',
+          data: {
+            payment: {
+              id: paymentRef.id,
+              ...updatedPayment.data(),
+            },
+            wallet: walletDoc.data(),
+          },
+        });
+        return;
+      }
+      throw error;
+    }
 
     // Get updated wallet
     const updatedWallet = await db.collection('wallets').doc(uid).get();
+    walletData = updatedWallet.data();
+
+    console.log(`[VERIFY] Final wallet balance: ₦${walletData?.balance || 0}`);
 
     res.status(200).json({
       success: true,
@@ -282,10 +352,11 @@ router.get('/verify/:reference', authenticate, async (req: Request, res: Respons
           ...payment,
           status: 'COMPLETED',
         },
-        wallet: updatedWallet.data(),
+        wallet: walletData,
       },
     });
   } catch (error: any) {
+    console.error(`[VERIFY] Error during verification:`, error);
     res.status(400).json({
       success: false,
       message: error.message || 'Payment verification failed',

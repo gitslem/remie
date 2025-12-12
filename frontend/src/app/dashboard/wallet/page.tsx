@@ -23,13 +23,16 @@ export default function WalletPage() {
     }
   }, [user]);
 
-  // Check for payment callback
+  // Check for payment callback - use ref to track if already verified
+  const [verifiedRef, setVerifiedRef] = useState<string | null>(null);
   useEffect(() => {
     const ref = searchParams.get('reference');
-    if (ref && user) {
+    // Only verify once per reference, and only if user is available
+    if (ref && user && ref !== verifiedRef) {
+      setVerifiedRef(ref);
       verifyPayment(ref);
     }
-  }, [searchParams, user]);
+  }, [searchParams, user, verifiedRef]);
 
   // Load balance from API
   const loadBalance = async () => {
