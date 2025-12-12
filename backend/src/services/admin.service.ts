@@ -476,6 +476,54 @@ class AdminService {
       throw error;
     }
   }
+
+  /**
+   * Update user nickname (admin only)
+   */
+  async updateUserNickname(userId: string, nickname: string, adminId: string) {
+    try {
+      // Check if nickname is already taken
+      if (nickname) {
+        const existingNickname = await prisma.user.findUnique({
+          where: { nickname },
+        });
+
+        if (existingNickname && existingNickname.id !== userId) {
+          throw new AppError('Nickname is already taken', 400);
+        }
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          nickname: nickname || null,
+          nicknameSetAt: nickname ? new Date() : null,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          nickname: true,
+          nicknameSetAt: true,
+        },
+      });
+
+      logger.info(`User nickname updated by admin`, {
+        userId,
+        adminId,
+        newNickname: nickname,
+      });
+
+      return updatedUser;
+    } catch (error: any) {
+      logger.error('Failed to update user nickname', {
+        userId,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
 }
 
 export default new AdminService();

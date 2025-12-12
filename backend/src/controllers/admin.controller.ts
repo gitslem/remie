@@ -259,6 +259,31 @@ export class AdminController {
       next(error);
     }
   }
+
+  /**
+   * Update user nickname
+   */
+  async updateUserNickname(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { userId } = req.params;
+      const { nickname } = req.body;
+      const adminId = req.user?.userId;
+
+      if (!adminId) {
+        throw new AppError('Unauthorized', 401);
+      }
+
+      const user = await adminService.updateUserNickname(userId, nickname, adminId);
+
+      res.json({
+        success: true,
+        message: 'Nickname updated successfully',
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new AdminController();

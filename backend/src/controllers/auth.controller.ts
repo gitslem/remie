@@ -120,6 +120,41 @@ export class AuthController {
       next(error);
     }
   }
+
+  async getProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new AppError('Not authenticated', 401);
+      }
+
+      const profile = await authService.getProfile(req.user.userId);
+
+      res.status(200).json({
+        status: 'success',
+        data: profile,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new AppError('Not authenticated', 401);
+      }
+
+      const profile = await authService.updateProfile(req.user.userId, req.body);
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Profile updated successfully',
+        data: profile,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new AuthController();

@@ -29,4 +29,7 @@ router.post('/users/:userId/deactivate', adminController.deactivateUser);
 // Wallet limits management
 router.put('/users/:userId/limits', adminController.updateWalletLimits);
 
+// Nickname management
+router.put('/users/:userId/nickname', adminController.updateUserNickname);
+
 export default router;

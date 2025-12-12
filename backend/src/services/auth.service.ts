@@ -348,6 +348,115 @@ export class AuthService {
       throw error;
     }
   }
+
+  // Get user profile
+  async getProfile(userId: string) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phoneNumber: true,
+          studentId: true,
+          institution: true,
+          nickname: true,
+          nicknameSetAt: true,
+          role: true,
+          status: true,
+          emailVerified: true,
+          phoneVerified: true,
+          kycVerified: true,
+          createdAt: true,
+        },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+
+      return user;
+    } catch (error) {
+      logger.error('Get profile error:', error);
+      throw error;
+    }
+  }
+
+  // Update user profile
+  async updateProfile(userId: string, data: {
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
+    studentId?: string;
+    institution?: string;
+    nickname?: string;
+  }) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nickname: true, nicknameSetAt: true },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+
+      // Prevent nickname change once it's set (only admin can change)
+      if (data.nickname && user.nickname && user.nicknameSetAt) {
+        throw new AppError('Nickname cannot be changed once set. Contact admin if you need to change it.', 400);
+      }
+
+      // Check if nickname is already taken
+      if (data.nickname) {
+        const existingNickname = await prisma.user.findUnique({
+          where: { nickname: data.nickname },
+        });
+
+        if (existingNickname && existingNickname.id !== userId) {
+          throw new AppError('Nickname is already taken', 400);
+        }
+      }
+
+      const updateData: any = {};
+
+      if (data.firstName) updateData.firstName = data.firstName;
+      if (data.lastName) updateData.lastName = data.lastName;
+      if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber;
+      if (data.studentId !== undefined) updateData.studentId = data.studentId;
+      if (data.institution !== undefined) updateData.institution = data.institution;
+
+      // Set nickname and timestamp if it's being set for the first time
+      if (data.nickname && !user.nickname) {
+        updateData.nickname = data.nickname;
+        updateData.nicknameSetAt = new Date();
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phoneNumber: true,
+          studentId: true,
+          institution: true,
+          nickname: true,
+          nicknameSetAt: true,
+        },
+      });
+
+      logger.info(`Profile updated for user: ${userId}`);
+
+      return updatedUser;
+    } catch (error) {
+      logger.error('Update profile error:', error);
+      throw error;
+    }
+  }
 }
 
 export default new AuthService();

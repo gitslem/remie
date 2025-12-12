@@ -128,7 +128,7 @@ export default function SettingsPage() {
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
 
@@ -142,7 +142,7 @@ export default function SettingsPage() {
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -158,14 +158,17 @@ export default function SettingsPage() {
                 type="text"
                 value={formData.nickname}
                 onChange={(e) => setFormData({ ...formData, nickname: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
-                className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                disabled={!!profile?.nickname}
+                className={`w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${profile?.nickname ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''}`}
                 placeholder="username"
                 pattern="[a-z0-9_]+"
                 maxLength={20}
               />
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Choose a unique nickname. Only lowercase letters, numbers, and underscores. Others can send you money using @{formData.nickname || 'yournickname'}
+              {profile?.nickname
+                ? 'Nickname is locked once set. Contact admin to change it.'
+                : 'Choose a unique nickname. Only lowercase letters, numbers, and underscores. Others can send you money using @' + (formData.nickname || 'yournickname')}
             </p>
           </div>
 
@@ -178,7 +181,7 @@ export default function SettingsPage() {
               type="tel"
               value={formData.phoneNumber}
               onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               placeholder="+234 800 000 0000"
             />
           </div>
@@ -193,7 +196,7 @@ export default function SettingsPage() {
                 type="text"
                 value={formData.studentId}
                 onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="e.g., 20240001"
               />
             </div>
@@ -206,7 +209,7 @@ export default function SettingsPage() {
                 type="text"
                 value={formData.institution}
                 onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 placeholder="e.g., University of Lagos"
               />
             </div>
