@@ -76,14 +76,8 @@ class ReceiptService {
           receiptNumber,
           paymentId: payment.id,
           userId: payment.userId,
-          amount: payment.amount,
-          pdfUrl: pdfPath,
+          receiptUrl: pdfPath,
           qrCode: qrCodeDataUrl,
-          metadata: {
-            paymentType: payment.type,
-            paymentMethod: payment.method,
-            paymentReference: payment.reference,
-          },
         },
       });
 
