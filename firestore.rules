@@ -62,6 +62,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Wallet Audit Trail
+    // Cloud Functions bypass these rules. These rules apply to client-side access only.
+    match /wallet_audit/{auditId} {
+      // Users can read their own audit entries, admins can read all
+      allow read: if isAuthenticated() &&
+                  (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Only Cloud Functions can create audit entries (client-side blocked)
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     // Payments collection
     // NOTE: Cloud Functions bypass these rules, but we keep them permissive
     // to avoid any edge cases during payment creation via Paystack
