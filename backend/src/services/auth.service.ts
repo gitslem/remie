@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { AppError } from '../middleware/errorHandler';
 import { sendEmail } from '../utils/email';
@@ -26,20 +26,16 @@ interface LoginData {
 export class AuthService {
   // Generate JWT token
   private generateToken(userId: string, email: string, role: string): string {
-    return jwt.sign(
-      { userId, email, role },
-      process.env.JWT_SECRET as string,
-      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string }
-    );
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    const options: SignOptions = { expiresIn: process.env.JWT_EXPIRES_IN || '7d' };
+    return jwt.sign({ userId, email, role }, secret, options);
   }
 
   // Generate refresh token
   private generateRefreshToken(userId: string): string {
-    return jwt.sign(
-      { userId },
-      process.env.REFRESH_TOKEN_SECRET as string,
-      { expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as string }
-    );
+    const secret = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
+    const options: SignOptions = { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d' };
+    return jwt.sign({ userId }, secret, options);
   }
 
   // Hash password
