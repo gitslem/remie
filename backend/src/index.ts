@@ -93,7 +93,7 @@ app.use('/api', limiter);
 // ============================================
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'success',
     message: 'REMIE API is running',
@@ -118,7 +118,7 @@ app.use('/api/v1/remittance', remittanceRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
 // API documentation
-app.get('/api/v1', (req, res) => {
+app.get('/api/v1', (_req, res) => {
   res.json({
     message: 'Welcome to REMIE API',
     version: '1.0.0',
