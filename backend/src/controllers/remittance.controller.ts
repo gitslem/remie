@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 /**
  * Get exchange rates
  */
-export const getExchangeRates = async (req: Request, res: Response) => {
+export const getExchangeRates = async (_req: Request, res: Response): Promise<void> => {
   try {
     const rates = [
       { from: 'NGN', to: 'USD', rate: 0.0013, fee: 2.5 },
@@ -32,14 +32,15 @@ export const getExchangeRates = async (req: Request, res: Response) => {
 /**
  * Calculate remittance
  */
-export const calculateRemittance = async (req: Request, res: Response) => {
+export const calculateRemittance = async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         errors: errors.array(),
       });
+      return;
     }
 
     const { amount, fromCurrency, toCurrency } = req.body;
@@ -51,10 +52,11 @@ export const calculateRemittance = async (req: Request, res: Response) => {
     });
 
     if (!calculation) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: `Exchange rate for ${fromCurrency} to ${toCurrency} not available`,
       });
+      return;
     }
 
     res.json({
@@ -73,14 +75,15 @@ export const calculateRemittance = async (req: Request, res: Response) => {
 /**
  * Send remittance
  */
-export const sendRemittance = async (req: Request, res: Response) => {
+export const sendRemittance = async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         errors: errors.array(),
       });
+      return;
     }
 
     const userId = (req as any).user.userId;

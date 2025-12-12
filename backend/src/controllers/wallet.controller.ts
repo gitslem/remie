@@ -29,14 +29,15 @@ export const getBalance = async (req: Request, res: Response) => {
 /**
  * Initiate wallet funding
  */
-export const fundWallet = async (req: Request, res: Response) => {
+export const fundWallet = async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         errors: errors.array(),
       });
+      return;
     }
 
     const userId = (req as any).user.userId;
@@ -94,14 +95,15 @@ export const verifyFunding = async (req: Request, res: Response) => {
 /**
  * Withdraw from wallet
  */
-export const withdraw = async (req: Request, res: Response) => {
+export const withdraw = async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         errors: errors.array(),
       });
+      return;
     }
 
     const userId = (req as any).user.userId;
@@ -181,7 +183,7 @@ export const getTransaction = async (req: Request, res: Response) => {
 /**
  * List banks
  */
-export const listBanks = async (req: Request, res: Response) => {
+export const listBanks = async (_req: Request, res: Response): Promise<void> => {
   try {
     const banks = await paystackService.listBanks();
 
@@ -201,14 +203,15 @@ export const listBanks = async (req: Request, res: Response) => {
 /**
  * Resolve account number
  */
-export const resolveAccount = async (req: Request, res: Response) => {
+export const resolveAccount = async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         errors: errors.array(),
       });
+      return;
     }
 
     const { accountNumber, bankCode } = req.body;

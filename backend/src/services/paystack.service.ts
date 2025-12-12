@@ -1,9 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
 import logger from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 interface PaystackInitializeResponse {
   status: boolean;
@@ -100,12 +97,6 @@ interface PaystackTransferResponse {
     createdAt: string;
     updatedAt: string;
   };
-}
-
-interface BankAccount {
-  accountNumber: string;
-  bankCode: string;
-  accountName?: string;
 }
 
 class PaystackService {

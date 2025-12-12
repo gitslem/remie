@@ -1,5 +1,6 @@
 import nodemailer, { Transporter } from 'nodemailer';
-import { PrismaClient, Receipt, Payment, User } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Receipt, Payment } from '../types/prisma';
 import logger from '../utils/logger';
 import path from 'path';
 
@@ -19,7 +20,7 @@ class EmailService {
   private transporter: Transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_PORT === '465',

@@ -1,4 +1,5 @@
-import { PrismaClient, CryptoType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { CryptoType } from '../types/prisma';
 import { ethers } from 'ethers';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
@@ -146,7 +147,7 @@ export class CryptoService {
       const amountInNGN = verification.amount * exchangeRate;
 
       // Create crypto transaction record
-      const cryptoTx = await prisma.$transaction(async (tx) => {
+      const cryptoTx = await prisma.$transaction(async (tx: any) => {
         // Create transaction record
         const transaction = await tx.cryptoTransaction.create({
           data: {
@@ -246,7 +247,7 @@ export class CryptoService {
       const amountInNGN = data.amount * exchangeRate;
 
       // Update database
-      const cryptoTx = await prisma.$transaction(async (txDb) => {
+      const cryptoTx = await prisma.$transaction(async (txDb: any) => {
         // Create transaction record
         const transaction = await txDb.cryptoTransaction.create({
           data: {

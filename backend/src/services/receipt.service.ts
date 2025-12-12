@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import { PrismaClient, Payment, User, RRRPayment } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Payment, User, RRRPayment } from '../types/prisma';
 import logger from '../utils/logger';
 import fs from 'fs';
 import path from 'path';

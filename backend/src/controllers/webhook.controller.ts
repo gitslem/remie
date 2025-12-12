@@ -2,24 +2,26 @@ import { Request, Response } from 'express';
 import paystackService from '../services/paystack.service';
 import walletService from '../services/wallet.service';
 import logger from '../utils/logger';
-import { PrismaClient, PaymentStatus, PaymentType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PaymentStatus, PaymentType } from '../types/prisma';
 
 const prisma = new PrismaClient();
 
 /**
  * Handle Paystack webhook events
  */
-export const handlePaystackWebhook = async (req: Request, res: Response) => {
+export const handlePaystackWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
     // Verify webhook signature
     const signature = req.headers['x-paystack-signature'] as string;
 
     if (!signature) {
       logger.warn('Paystack webhook received without signature');
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Missing signature',
       });
+      return;
     }
 
     const payload = JSON.stringify(req.body);
@@ -27,10 +29,11 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
 
     if (!isValid) {
       logger.warn('Invalid Paystack webhook signature');
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Invalid signature',
       });
+      return;
     }
 
     const event = req.body;

@@ -30,7 +30,7 @@ export class AuthService {
     return jwt.sign(
       { userId, email, role },
       secret,
-      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string | number }
+      { expiresIn: '7d' }
     );
   }
 
@@ -40,7 +40,7 @@ export class AuthService {
     return jwt.sign(
       { userId },
       secret,
-      { expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as string | number }
+      { expiresIn: '30d' }
     );
   }
 
@@ -78,7 +78,7 @@ export class AuthService {
       const hashedPassword = await this.hashPassword(data.password);
 
       // Create user and wallet in a transaction
-      const user = await prisma.$transaction(async (tx) => {
+      const user = await prisma.$transaction(async (tx: any) => {
         const newUser = await tx.user.create({
           data: {
             email: data.email,

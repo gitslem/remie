@@ -1,4 +1,5 @@
-import { PrismaClient, PaymentType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PaymentType } from '../types/prisma';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 import { sendEmail } from '../utils/email';
@@ -49,9 +50,9 @@ export class LoanService {
       return 500; // Default score for new users
     }
 
-    const completedLoans = loans.filter((l) => l.status === 'COMPLETED').length;
-    const defaultedLoans = loans.filter((l) => l.status === 'DEFAULTED').length;
-    const activeLoans = loans.filter((l) => l.status === 'ACTIVE').length;
+    const completedLoans = loans.filter((l: any) => l.status === 'COMPLETED').length;
+    const defaultedLoans = loans.filter((l: any) => l.status === 'DEFAULTED').length;
+    const activeLoans = loans.filter((l: any) => l.status === 'ACTIVE').length;
 
     // Simple scoring logic
     let score = 500;
@@ -63,7 +64,7 @@ export class LoanService {
   }
 
   // Check loan eligibility
-  private async checkEligibility(userId: string, amount: number): Promise<boolean> {
+  private async checkEligibility(userId: string, _amount: number): Promise<boolean> {
     // Check if user has active loans
     const activeLoan = await prisma.loan.findFirst({
       where: {
@@ -169,7 +170,7 @@ export class LoanService {
       }
 
       // Update loan status and disburse funds
-      const updatedLoan = await prisma.$transaction(async (tx) => {
+      const updatedLoan = await prisma.$transaction(async (tx: any) => {
         // Update loan
         const updated = await tx.loan.update({
           where: { id: loanId },
@@ -265,7 +266,7 @@ export class LoanService {
       const newPaid = Number(loan.amountPaid) + amount;
 
       // Process repayment
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         // Debit wallet
         await tx.wallet.update({
           where: { userId: loan.userId },
