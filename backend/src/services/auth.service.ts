@@ -1,4 +1,4 @@
-import { PrismaClient, User } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -29,7 +29,7 @@ export class AuthService {
     return jwt.sign(
       { userId, email, role },
       process.env.JWT_SECRET as string,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string }
     );
   }
 
@@ -38,7 +38,7 @@ export class AuthService {
     return jwt.sign(
       { userId },
       process.env.REFRESH_TOKEN_SECRET as string,
-      { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d' }
+      { expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as string }
     );
   }
 
