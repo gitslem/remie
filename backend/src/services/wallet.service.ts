@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import { PaymentMethod, PaymentStatus, PaymentType } from '../types/prisma';
+import { PrismaClient, PaymentMethod, PaymentStatus, PaymentType } from '@prisma/client';
 import paystackService from './paystack.service';
 import receiptService from './receipt.service';
 import emailService from './email.service';
