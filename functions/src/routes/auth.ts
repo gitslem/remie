@@ -138,6 +138,33 @@ router.put('/profile', authenticate, async (req: Request, res: Response): Promis
     delete updates.role;
     delete updates.status;
     delete updates.emailVerified;
+    delete updates.email; // Email cannot be changed
+    delete updates.createdAt;
+
+    // Validate nickname if being updated
+    if (updates.nickname !== undefined) {
+      if (updates.nickname) {
+        // Check if nickname is already taken by another user
+        const nicknameExists = await db.collection('users')
+          .where('nickname', '==', updates.nickname.toLowerCase())
+          .limit(1)
+          .get();
+
+        if (!nicknameExists.empty && nicknameExists.docs[0].id !== uid) {
+          res.status(400).json({
+            status: 'error',
+            message: 'Nickname already taken',
+          });
+          return;
+        }
+
+        // Store nickname in lowercase
+        updates.nickname = updates.nickname.toLowerCase();
+      } else {
+        // Allow setting nickname to null/empty
+        updates.nickname = null;
+      }
+    }
 
     await db.collection('users').doc(uid).update({
       ...updates,
