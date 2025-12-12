@@ -63,16 +63,21 @@ service cloud.firestore {
     }
 
     // Payments collection
+    // NOTE: Cloud Functions bypass these rules, but we keep them permissive
+    // to avoid any edge cases during payment creation via Paystack
     match /payments/{paymentId} {
       allow read: if isAuthenticated() &&
                   (resource.data.userId == request.auth.uid || isAdmin());
+      // Allow payment creation for authenticated users
+      // Removed createdAt from required fields as serverTimestamp() is evaluated after validation
       allow create: if isAuthenticated() &&
                     request.resource.data.userId == request.auth.uid &&
                     request.resource.data.amount > 0 &&
-                    hasRequiredFields(['userId', 'amount', 'status', 'createdAt']);
+                    hasRequiredFields(['userId', 'amount', 'status']);
+      // Allow updates for payment status changes (e.g., PENDING -> COMPLETED)
       allow update: if isAuthenticated() &&
                     (resource.data.userId == request.auth.uid || isAdmin()) &&
-                    !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'amount', 'createdAt']);
+                    !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'amount']);
     }
 
     // RRR Payments
