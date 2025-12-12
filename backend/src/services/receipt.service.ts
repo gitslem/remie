@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import { PrismaClient, Payment, User, RRRPayment } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import logger from '../utils/logger';
 import fs from 'fs';
 import path from 'path';
@@ -110,9 +110,9 @@ class ReceiptService {
    * Generate PDF receipt
    */
   private async generatePDF(params: {
-    payment: Payment & { user: User; rrrPayment: RRRPayment | null };
-    user: User;
-    rrrPayment: RRRPayment | null;
+    payment: any;
+    user: any;
+    rrrPayment: any | null;
     receiptNumber: string;
     qrCodeDataUrl: string;
   }): Promise<string> {
@@ -364,7 +364,7 @@ class ReceiptService {
   /**
    * Get payment description based on type
    */
-  private getPaymentDescription(payment: Payment, rrrPayment: RRRPayment | null): string {
+  private getPaymentDescription(payment: any, rrrPayment: any | null): string {
     switch (payment.type) {
       case 'WALLET_FUNDING':
         return 'Wallet Top-up';

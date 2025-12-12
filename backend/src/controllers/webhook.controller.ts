@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import paystackService from '../services/paystack.service';
 import walletService from '../services/wallet.service';
 import logger from '../utils/logger';
-import { PrismaClient, PaymentStatus, PaymentType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PaymentStatus, PaymentType } from '../types/prisma';
 
 const prisma = new PrismaClient();
 
@@ -63,7 +64,7 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
     }
 
     // Always respond with 200 to acknowledge receipt
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Webhook processed',
     });
@@ -74,7 +75,7 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
     });
 
     // Still return 200 to prevent Paystack from retrying
-    res.status(200).json({
+    return res.status(200).json({
       success: false,
       message: 'Webhook processing failed',
     });

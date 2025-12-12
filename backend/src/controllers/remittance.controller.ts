@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 /**
  * Get exchange rates
  */
-export const getExchangeRates = async (req: Request, res: Response) => {
+export const getExchangeRates = async (_req: Request, res: Response) => {
   try {
     const rates = [
       { from: 'NGN', to: 'USD', rate: 0.0013, fee: 2.5 },
@@ -57,13 +57,13 @@ export const calculateRemittance = async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: calculation,
     });
   } catch (error: any) {
     logger.error('Calculate remittance error', { error: error.message });
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message || 'Calculation failed',
     });
@@ -109,10 +109,10 @@ export const sendRemittance = async (req: Request, res: Response) => {
       country,
     });
 
-    res.json(result);
+    return res.json(result);
   } catch (error: any) {
     logger.error('Send remittance error', { error: error.message });
-    res.status(400).json({
+    return res.status(400).json({
       success: false,
       message: error.message || 'Failed to send remittance',
     });
