@@ -22,6 +22,7 @@ import receiptRoutes from './routes/receipt.routes';
 import notificationRoutes from './routes/notification.routes';
 import webhookRoutes from './routes/webhook.routes';
 import remittanceRoutes from './routes/remittance.routes';
+import adminRoutes from './routes/admin.routes';
 
 // Load environment variables
 dotenv.config();
@@ -114,6 +115,7 @@ app.use('/api/v1/receipts', receiptRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1/remittance', remittanceRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // API documentation
 app.get('/api/v1', (req, res) => {
@@ -134,6 +136,7 @@ app.get('/api/v1', (req, res) => {
       notifications: '/api/v1/notifications',
       webhooks: '/api/v1/webhooks',
       remittance: '/api/v1/remittance',
+      admin: '/api/v1/admin',
     },
   });
 });

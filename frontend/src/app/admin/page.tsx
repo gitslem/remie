@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Table, StatusBadge, LoadingSpinner, Button } from '@/components';
-import { useQuery } from '@tanstack/react-query';
+import { Card, Table, StatusBadge, Button } from '@/components';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { admin } from '@/lib/api';
 import {
   Users,
   Activity,
@@ -15,9 +16,14 @@ import {
   Eye,
   UserCheck,
   UserX,
-  BarChart3
+  BarChart3,
+  Ban,
+  Settings,
+  Check,
+  X
 } from 'lucide-react';
 import { AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { toast } from 'react-hot-toast';
 
 interface User {
   id: string;
@@ -25,96 +31,345 @@ interface User {
   firstName: string;
   lastName: string;
   phoneNumber?: string;
-  isVerified: boolean;
-  status: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED';
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  kycVerified: boolean;
+  status: 'ACTIVE' | 'SUSPENDED' | 'INACTIVE' | 'PENDING_VERIFICATION' | 'PENDING_APPROVAL';
+  role: string;
+  institution?: string;
+  studentId?: string;
   createdAt: string;
-  walletBalance: number;
-  totalTransactions: number;
+  lastLoginAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  wallet?: {
+    balance: number;
+    availableBalance: number;
+    dailyLimit: number;
+    monthlyLimit: number;
+    dailyFundingSpent: number;
+    monthlyFundingSpent: number;
+    isFrozen: boolean;
+  };
+  _count?: {
+    payments: number;
+    loans: number;
+  };
 }
 
 interface Activity {
   id: string;
   userId: string;
   userName: string;
+  userEmail: string;
   type: string;
   description: string;
   amount?: number;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'ACTIVE' | 'PAID' | 'INITIATED' | 'SUSPENDED' | 'BLOCKED';
+  status: string;
   createdAt: string;
 }
 
 interface Stats {
   totalUsers: number;
   activeUsers: number;
+  pendingApprovalUsers: number;
+  suspendedUsers: number;
+  totalWalletBalance: number;
   totalTransactions: number;
+  completedTransactions: number;
   totalVolume: number;
   pendingLoans: number;
   activeLoans: number;
-  systemRevenue: number;
 }
 
-export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'activities' | 'loans'>('overview');
-  const [userPage, setUserPage] = useState(1);
-  const [activityPage, setActivityPage] = useState(1);
+interface LimitModalProps {
+  user: User;
+  onClose: () => void;
+  onUpdate: (userId: string, limits: { dailyLimit?: number; monthlyLimit?: number }) => void;
+}
 
-  // Mock data - Replace with actual API calls
-  const stats: Stats = {
-    totalUsers: 1250,
-    activeUsers: 892,
-    totalTransactions: 8456,
-    totalVolume: 125_450_000,
-    pendingLoans: 24,
-    activeLoans: 156,
-    systemRevenue: 3_250_000,
+const LimitModal: React.FC<LimitModalProps> = ({ user, onClose, onUpdate }) => {
+  const [dailyLimit, setDailyLimit] = useState(user.wallet?.dailyLimit || 100000);
+  const [monthlyLimit, setMonthlyLimit] = useState(user.wallet?.monthlyLimit || 500000);
+
+  const handleSubmit = () => {
+    onUpdate(user.id, { dailyLimit, monthlyLimit });
+    onClose();
   };
 
-  const mockUsers: User[] = [
-    {
-      id: '1',
-      email: 'john.doe@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      phoneNumber: '+2348012345678',
-      isVerified: true,
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      walletBalance: 50000,
-      totalTransactions: 45,
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 className="text-lg font-semibold mb-4">Update Spending Limits</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Set daily and monthly funding limits for {user.firstName} {user.lastName}
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Daily Funding Limit (₦)
+            </label>
+            <input
+              type="number"
+              value={dailyLimit}
+              onChange={(e) => setDailyLimit(parseFloat(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              min="0"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Current spent: ₦{user.wallet?.dailyFundingSpent?.toLocaleString() || 0}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Monthly Funding Limit (₦)
+            </label>
+            <input
+              type="number"
+              value={monthlyLimit}
+              onChange={(e) => setMonthlyLimit(parseFloat(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              min="0"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Current spent: ₦{user.wallet?.monthlyFundingSpent?.toLocaleString() || 0}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-6">
+          <Button variant="outline" onClick={onClose} className="flex-1">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} className="flex-1">
+            Update Limits
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function AdminDashboardPage() {
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'pending' | 'activities'>('overview');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const queryClient = useQueryClient();
+
+  // Fetch dashboard stats
+  const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
+      const response = await admin.getStats();
+      return response.data.data;
     },
-    // Add more mock users...
-  ];
+  });
 
-  const mockActivities: Activity[] = [
-    {
-      id: '1',
-      userId: '1',
-      userName: 'John Doe',
-      type: 'WALLET_FUNDING',
-      description: 'Funded wallet',
-      amount: 10000,
-      status: 'COMPLETED',
-      createdAt: new Date().toISOString(),
+  // Fetch users
+  const { data: usersData, isLoading: usersLoading } = useQuery({
+    queryKey: ['admin-users', searchQuery, statusFilter],
+    queryFn: async () => {
+      const response = await admin.getUsers({
+        search: searchQuery || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      });
+      return response.data.data;
     },
-    // Add more mock activities...
-  ];
+    enabled: activeTab === 'users',
+  });
 
-  // Chart data
-  const transactionVolumeData = [
-    { month: 'Jan', volume: 12_000_000, transactions: 1200 },
-    { month: 'Feb', volume: 18_500_000, transactions: 1650 },
-    { month: 'Mar', volume: 22_300_000, transactions: 2100 },
-    { month: 'Apr', volume: 28_700_000, transactions: 2450 },
-    { month: 'May', volume: 35_200_000, transactions: 2800 },
-    { month: 'Jun', volume: 42_150_000, transactions: 3200 },
-  ];
+  // Fetch pending approvals
+  const { data: pendingUsers, isLoading: pendingLoading } = useQuery<User[]>({
+    queryKey: ['admin-pending-approvals'],
+    queryFn: async () => {
+      const response = await admin.getPendingApprovals();
+      return response.data.data;
+    },
+    enabled: activeTab === 'pending',
+  });
 
-  const transactionTypeData = [
-    { name: 'Wallet Funding', value: 35, color: '#10B981' },
-    { name: 'P2P Transfers', value: 25, color: '#3B82F6' },
-    { name: 'RRR Payments', value: 20, color: '#8B5CF6' },
-    { name: 'Remittance', value: 12, color: '#F59E0B' },
-    { name: 'Loan Payments', value: 8, color: '#EF4444' },
+  // Fetch activities
+  const { data: activities, isLoading: activitiesLoading } = useQuery<Activity[]>({
+    queryKey: ['admin-activities'],
+    queryFn: async () => {
+      const response = await admin.getActivities(50);
+      return response.data.data;
+    },
+    enabled: activeTab === 'activities',
+  });
+
+  // Mutations
+  const approveMutation = useMutation({
+    mutationFn: (userId: string) => admin.approveUser(userId),
+    onSuccess: () => {
+      toast.success('User approved successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to approve user');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (userId: string) => admin.rejectUser(userId),
+    onSuccess: () => {
+      toast.success('User rejected successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to reject user');
+    },
+  });
+
+  const suspendMutation = useMutation({
+    mutationFn: (userId: string) => admin.suspendUser(userId),
+    onSuccess: () => {
+      toast.success('User suspended successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to suspend user');
+    },
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (userId: string) => admin.activateUser(userId),
+    onSuccess: () => {
+      toast.success('User activated successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to activate user');
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (userId: string) => admin.deactivateUser(userId),
+    onSuccess: () => {
+      toast.success('User deactivated successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to deactivate user');
+    },
+  });
+
+  const updateLimitsMutation = useMutation({
+    mutationFn: ({ userId, limits }: { userId: string; limits: { dailyLimit?: number; monthlyLimit?: number } }) =>
+      admin.updateLimits(userId, limits),
+    onSuccess: () => {
+      toast.success('Limits updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update limits');
+    },
+  });
+
+  const pendingColumns = [
+    {
+      key: 'user',
+      header: 'User',
+      render: (user: User) => (
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+            <span className="text-indigo-600 font-semibold">
+              {user.firstName[0]}{user.lastName[0]}
+            </span>
+          </div>
+          <div>
+            <p className="font-medium text-gray-900">{user.firstName} {user.lastName}</p>
+            <p className="text-xs text-gray-500">{user.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'institution',
+      header: 'Institution',
+      render: (user: User) => (
+        <div>
+          <p className="text-sm text-gray-900">{user.institution || 'N/A'}</p>
+          <p className="text-xs text-gray-500">{user.studentId || 'No ID'}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'verification',
+      header: 'Verification',
+      render: (user: User) => (
+        <div className="space-y-1">
+          {user.emailVerified && (
+            <div className="flex items-center gap-1 text-green-600 text-xs">
+              <CheckCircle className="h-3 w-3" />
+              <span>Email</span>
+            </div>
+          )}
+          {user.phoneVerified && (
+            <div className="flex items-center gap-1 text-green-600 text-xs">
+              <CheckCircle className="h-3 w-3" />
+              <span>Phone</span>
+            </div>
+          )}
+          {user.kycVerified && (
+            <div className="flex items-center gap-1 text-green-600 text-xs">
+              <CheckCircle className="h-3 w-3" />
+              <span>KYC</span>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'joined',
+      header: 'Joined',
+      render: (user: User) => (
+        <p className="text-sm text-gray-600">
+          {new Date(user.createdAt).toLocaleDateString('en-NG', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </p>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (user: User) => (
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="success"
+            onClick={() => approveMutation.mutate(user.id)}
+            disabled={approveMutation.isPending}
+          >
+            <Check className="h-4 w-4 mr-1" />
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            onClick={() => rejectMutation.mutate(user.id)}
+            disabled={rejectMutation.isPending}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Reject
+          </Button>
+        </div>
+      ),
+    },
   ];
 
   const userColumns = [
@@ -136,45 +391,27 @@ export default function AdminDashboardPage() {
       ),
     },
     {
-      key: 'verification',
+      key: 'status',
       header: 'Status',
+      render: (user: User) => <StatusBadge status={user.status} />,
+    },
+    {
+      key: 'balance',
+      header: 'Wallet',
       render: (user: User) => (
-        <div className="space-y-1">
-          <StatusBadge status={user.status} />
-          {user.isVerified && (
-            <div className="flex items-center gap-1 text-green-600 text-xs">
-              <CheckCircle className="h-3 w-3" />
-              <span>Verified</span>
-            </div>
-          )}
+        <div>
+          <p className="font-semibold text-gray-900">₦{user.wallet?.balance?.toLocaleString() || 0}</p>
+          <p className="text-xs text-gray-500">
+            Limit: ₦{user.wallet?.dailyLimit?.toLocaleString() || 0}/day
+          </p>
         </div>
       ),
     },
     {
-      key: 'balance',
-      header: 'Wallet Balance',
-      render: (user: User) => (
-        <p className="font-semibold text-gray-900">₦{user.walletBalance.toLocaleString()}</p>
-      ),
-    },
-    {
       key: 'transactions',
-      header: 'Transactions',
+      header: 'Activity',
       render: (user: User) => (
-        <p className="text-sm text-gray-600">{user.totalTransactions}</p>
-      ),
-    },
-    {
-      key: 'joined',
-      header: 'Joined',
-      render: (user: User) => (
-        <p className="text-sm text-gray-600">
-          {new Date(user.createdAt).toLocaleDateString('en-NG', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </p>
+        <p className="text-sm text-gray-600">{user._count?.payments || 0} payments</p>
       ),
     },
     {
@@ -182,16 +419,44 @@ export default function AdminDashboardPage() {
       header: 'Actions',
       render: (user: User) => (
         <div className="flex gap-2">
-          <Button size="sm" variant="outline">
-            <Eye className="h-4 w-4" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setSelectedUser(user)}
+            title="Set Limits"
+          >
+            <Settings className="h-4 w-4" />
           </Button>
           {user.status === 'ACTIVE' ? (
-            <Button size="sm" variant="danger">
-              <UserX className="h-4 w-4" />
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => suspendMutation.mutate(user.id)}
+              disabled={suspendMutation.isPending}
+              title="Suspend User"
+            >
+              <Ban className="h-4 w-4" />
             </Button>
-          ) : (
-            <Button size="sm" variant="success">
+          ) : user.status === 'SUSPENDED' ? (
+            <Button
+              size="sm"
+              variant="success"
+              onClick={() => activateMutation.mutate(user.id)}
+              disabled={activateMutation.isPending}
+              title="Activate User"
+            >
               <UserCheck className="h-4 w-4" />
+            </Button>
+          ) : null}
+          {user.status !== 'INACTIVE' && (
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => deactivateMutation.mutate(user.id)}
+              disabled={deactivateMutation.isPending}
+              title="Remove User"
+            >
+              <UserX className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -204,7 +469,10 @@ export default function AdminDashboardPage() {
       key: 'user',
       header: 'User',
       render: (activity: Activity) => (
-        <p className="font-medium text-gray-900">{activity.userName}</p>
+        <div>
+          <p className="font-medium text-gray-900">{activity.userName}</p>
+          <p className="text-xs text-gray-500">{activity.userEmail}</p>
+        </div>
       ),
     },
     {
@@ -253,7 +521,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-1">Manage users, monitor activities, and view system analytics</p>
+        <p className="text-gray-600 mt-1">Manage users, monitor activities, and control platform settings</p>
       </div>
 
       {/* Navigation Tabs */}
@@ -273,6 +541,24 @@ export default function AdminDashboardPage() {
             </div>
           </button>
           <button
+            onClick={() => setActiveTab('pending')}
+            className={`px-6 py-3 font-medium border-b-2 transition ${
+              activeTab === 'pending'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span>Pending Approvals</span>
+              {stats && stats.pendingApprovalUsers > 0 && (
+                <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-600 text-xs font-semibold rounded-full">
+                  {stats.pendingApprovalUsers}
+                </span>
+              )}
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
             className={`px-6 py-3 font-medium border-b-2 transition ${
               activeTab === 'users'
@@ -282,7 +568,7 @@ export default function AdminDashboardPage() {
           >
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>Users</span>
+              <span>All Users</span>
             </div>
           </button>
           <button
@@ -298,19 +584,6 @@ export default function AdminDashboardPage() {
               <span>Activities</span>
             </div>
           </button>
-          <button
-            onClick={() => setActiveTab('loans')}
-            className={`px-6 py-3 font-medium border-b-2 transition ${
-              activeTab === 'loans'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span>Loans</span>
-            </div>
-          </button>
         </div>
       </Card>
 
@@ -323,14 +596,29 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Total Users</p>
-                  <p className="text-3xl font-bold text-blue-600">{stats.totalUsers.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-blue-600">{stats?.totalUsers?.toLocaleString() || 0}</p>
                   <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
                     <TrendingUp className="h-3 w-3" />
-                    {stats.activeUsers} active
+                    {stats?.activeUsers || 0} active
                   </p>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-full">
                   <Users className="h-8 w-8 text-blue-600" />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Pending Approval</p>
+                  <p className="text-3xl font-bold text-orange-600">{stats?.pendingApprovalUsers || 0}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Awaiting admin action
+                  </p>
+                </div>
+                <div className="p-3 bg-orange-100 rounded-full">
+                  <Clock className="h-8 w-8 text-orange-600" />
                 </div>
               </div>
             </Card>
@@ -340,10 +628,10 @@ export default function AdminDashboardPage() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Transaction Volume</p>
                   <p className="text-2xl font-bold text-green-600">
-                    ₦{(stats.totalVolume / 1_000_000).toFixed(1)}M
+                    ₦{((stats?.totalVolume || 0) / 1_000_000).toFixed(1)}M
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {stats.totalTransactions.toLocaleString()} transactions
+                    {stats?.completedTransactions?.toLocaleString() || 0} completed
                   </p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-full">
@@ -355,10 +643,12 @@ export default function AdminDashboardPage() {
             <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Active Loans</p>
-                  <p className="text-3xl font-bold text-purple-600">{stats.activeLoans}</p>
-                  <p className="text-xs text-orange-600 mt-1">
-                    {stats.pendingLoans} pending approval
+                  <p className="text-sm text-gray-600 mb-1">Total Wallet Balance</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    ₦{((stats?.totalWalletBalance || 0) / 1_000_000).toFixed(2)}M
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Platform liquidity
                   </p>
                 </div>
                 <div className="p-3 bg-purple-100 rounded-full">
@@ -366,179 +656,117 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </Card>
-
-            <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">System Revenue</p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    ₦{(stats.systemRevenue / 1_000_000).toFixed(2)}M
-                  </p>
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    12% from last month
-                  </p>
-                </div>
-                <div className="p-3 bg-orange-100 rounded-full">
-                  <BarChart3 className="h-8 w-8 text-orange-600" />
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card title="Transaction Volume Trend" className="lg:col-span-2">
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={transactionVolumeData}>
-                  <defs>
-                    <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="month" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="volume"
-                    stroke="#3B82F6"
-                    fillOpacity={1}
-                    fill="url(#colorVolume)"
-                    name="Volume (₦)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Card>
-
-            <Card title="Transactions by Type">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={transactionTypeData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {transactionTypeData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </Card>
           </div>
 
           {/* Recent Activities */}
           <Card title="Recent System Activities">
-            <Table
-              data={mockActivities.slice(0, 10)}
-              columns={activityColumns}
-              emptyMessage="No activities found"
-            />
+            {activitiesLoading ? (
+              <div className="py-8 text-center text-gray-500">Loading...</div>
+            ) : activities && activities.length > 0 ? (
+              <Table
+                data={activities.slice(0, 10)}
+                columns={activityColumns}
+                emptyMessage="No activities found"
+              />
+            ) : (
+              <div className="py-8 text-center text-gray-500">No activities found</div>
+            )}
           </Card>
         </>
+      )}
+
+      {/* Pending Approvals Tab */}
+      {activeTab === 'pending' && (
+        <Card>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Users Pending Approval</h3>
+            <p className="text-sm text-gray-600">Review and approve new user registrations</p>
+          </div>
+
+          {pendingLoading ? (
+            <div className="py-8 text-center text-gray-500">Loading...</div>
+          ) : pendingUsers && pendingUsers.length > 0 ? (
+            <Table
+              data={pendingUsers}
+              columns={pendingColumns}
+              emptyMessage="No pending approvals"
+            />
+          ) : (
+            <div className="py-8 text-center text-gray-500">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />
+              <p>All users have been reviewed!</p>
+            </div>
+          )}
+        </Card>
       )}
 
       {/* Users Tab */}
       {activeTab === 'users' && (
         <Card>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex items-center gap-4">
             <input
               type="text"
               placeholder="Search users by name or email..."
-              className="flex-1 max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-            <div className="flex gap-2">
-              <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                <option value="ALL">All Status</option>
-                <option value="ACTIVE">Active</option>
-                <option value="SUSPENDED">Suspended</option>
-                <option value="BLOCKED">Blocked</option>
-              </select>
-            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
           </div>
 
-          <Table
-            data={mockUsers}
-            columns={userColumns}
-            emptyMessage="No users found"
-          />
+          {usersLoading ? (
+            <div className="py-8 text-center text-gray-500">Loading...</div>
+          ) : usersData?.users && usersData.users.length > 0 ? (
+            <Table
+              data={usersData.users}
+              columns={userColumns}
+              emptyMessage="No users found"
+            />
+          ) : (
+            <div className="py-8 text-center text-gray-500">No users found</div>
+          )}
         </Card>
       )}
 
       {/* Activities Tab */}
       {activeTab === 'activities' && (
         <Card>
-          <div className="mb-4 flex items-center gap-2">
-            <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-              <option value="ALL">All Activities</option>
-              <option value="WALLET_FUNDING">Wallet Funding</option>
-              <option value="P2P_TRANSFER">P2P Transfer</option>
-              <option value="RRR_PAYMENT">RRR Payment</option>
-              <option value="LOAN_APPLICATION">Loan Application</option>
-            </select>
-            <input
-              type="date"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">System Activities</h3>
+            <p className="text-sm text-gray-600">Monitor all platform transactions and activities</p>
           </div>
 
-          <Table
-            data={mockActivities}
-            columns={activityColumns}
-            emptyMessage="No activities found"
-          />
+          {activitiesLoading ? (
+            <div className="py-8 text-center text-gray-500">Loading...</div>
+          ) : activities && activities.length > 0 ? (
+            <Table
+              data={activities}
+              columns={activityColumns}
+              emptyMessage="No activities found"
+            />
+          ) : (
+            <div className="py-8 text-center text-gray-500">No activities found</div>
+          )}
         </Card>
       )}
 
-      {/* Loans Tab */}
-      {activeTab === 'loans' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-gradient-to-br from-orange-50 to-yellow-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Pending Approval</p>
-                  <p className="text-3xl font-bold text-orange-600">{stats.pendingLoans}</p>
-                </div>
-                <Clock className="h-8 w-8 text-orange-600" />
-              </div>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Active Loans</p>
-                  <p className="text-3xl font-bold text-green-600">{stats.activeLoans}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-red-50 to-pink-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Defaulted</p>
-                  <p className="text-3xl font-bold text-red-600">8</p>
-                </div>
-                <XCircle className="h-8 w-8 text-red-600" />
-              </div>
-            </Card>
-          </div>
-
-          <Card title="Pending Loan Applications">
-            <p className="text-gray-600 py-8 text-center">Loan approval interface coming soon...</p>
-          </Card>
-        </div>
+      {/* Limit Modal */}
+      {selectedUser && (
+        <LimitModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onUpdate={(userId, limits) => updateLimitsMutation.mutate({ userId, limits })}
+        />
       )}
     </div>
   );

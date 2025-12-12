@@ -86,6 +86,7 @@ export class AuthService {
             phoneNumber: data.phoneNumber,
             studentId: data.studentId,
             institution: data.institution,
+            status: 'PENDING_APPROVAL', // New users require admin approval
           },
           select: {
             id: true,
@@ -162,9 +163,17 @@ export class AuthService {
         throw new AppError('Invalid email or password', 401);
       }
 
-      // Check if user is active
-      if (user.status !== 'ACTIVE' && user.status !== 'PENDING_VERIFICATION') {
-        throw new AppError('Account is suspended or inactive', 403);
+      // Check user status
+      if (user.status === 'PENDING_APPROVAL') {
+        throw new AppError('Your account is pending admin approval. Please wait for approval to access the platform.', 403);
+      }
+
+      if (user.status === 'SUSPENDED') {
+        throw new AppError('Your account has been suspended. Please contact support.', 403);
+      }
+
+      if (user.status === 'INACTIVE') {
+        throw new AppError('Your account is inactive. Please contact support.', 403);
       }
 
       // Generate tokens

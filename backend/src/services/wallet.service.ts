@@ -27,22 +27,88 @@ interface WithdrawParams {
 
 class WalletService {
   /**
+   * Reset spending limits if needed
+   */
+  private async resetSpendingLimitsIfNeeded(wallet: any) {
+    const now = new Date();
+    const updates: any = {};
+
+    // Check if daily reset is needed (last reset was yesterday or earlier)
+    const lastDailyReset = new Date(wallet.lastDailyReset);
+    lastDailyReset.setHours(0, 0, 0, 0);
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+
+    if (lastDailyReset < today) {
+      updates.dailyFundingSpent = 0;
+      updates.lastDailyReset = now;
+    }
+
+    // Check if monthly reset is needed (last reset was last month or earlier)
+    const lastMonthlyReset = new Date(wallet.lastMonthlyReset);
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const lastResetMonth = lastMonthlyReset.getMonth();
+    const lastResetYear = lastMonthlyReset.getFullYear();
+
+    if (lastResetYear < currentYear || (lastResetYear === currentYear && lastResetMonth < currentMonth)) {
+      updates.monthlyFundingSpent = 0;
+      updates.lastMonthlyReset = now;
+    }
+
+    // Apply updates if needed
+    if (Object.keys(updates).length > 0) {
+      await prisma.wallet.update({
+        where: { id: wallet.id },
+        data: updates,
+      });
+
+      // Return updated values
+      return {
+        ...wallet,
+        ...updates,
+      };
+    }
+
+    return wallet;
+  }
+
+  /**
    * Initialize wallet funding via Paystack
    */
   async initiateFunding(params: FundWalletParams) {
     try {
-      // Get user wallet
-      const wallet = await prisma.wallet.findUnique({
-        where: { userId: params.userId },
+      // Get user and wallet
+      const user = await prisma.user.findUnique({
+        where: { id: params.userId },
+        include: { wallet: true },
       });
 
-      if (!wallet) {
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (!user.wallet) {
         throw new Error('Wallet not found');
       }
+
+      // Check if user is approved
+      if (user.status === 'PENDING_APPROVAL') {
+        throw new Error('Your account is pending admin approval. Please wait for approval before funding your wallet.');
+      }
+
+      if (user.status !== 'ACTIVE' && user.status !== 'PENDING_VERIFICATION') {
+        throw new Error('Your account is not active. Please contact support.');
+      }
+
+      let wallet = user.wallet;
 
       if (wallet.isFrozen) {
         throw new Error('Wallet is frozen. Please contact support.');
       }
+
+      // Reset spending limits if needed
+      wallet = await this.resetSpendingLimitsIfNeeded(wallet);
 
       // Validate amount
       if (params.amount < 100) {
@@ -51,6 +117,28 @@ class WalletService {
 
       if (params.amount > 1000000) {
         throw new Error('Maximum funding amount is ₦1,000,000');
+      }
+
+      // Check daily funding limit
+      const dailySpent = parseFloat(wallet.dailyFundingSpent.toString());
+      const dailyLimit = parseFloat(wallet.dailyLimit.toString());
+
+      if (dailySpent + params.amount > dailyLimit) {
+        const remaining = dailyLimit - dailySpent;
+        throw new Error(
+          `Daily funding limit exceeded. You can fund ₦${remaining.toFixed(2)} more today. Limit resets tomorrow.`
+        );
+      }
+
+      // Check monthly funding limit
+      const monthlySpent = parseFloat(wallet.monthlyFundingSpent.toString());
+      const monthlyLimit = parseFloat(wallet.monthlyLimit.toString());
+
+      if (monthlySpent + params.amount > monthlyLimit) {
+        const remaining = monthlyLimit - monthlySpent;
+        throw new Error(
+          `Monthly funding limit exceeded. You can fund ₦${remaining.toFixed(2)} more this month.`
+        );
       }
 
       // Generate reference
@@ -166,7 +254,7 @@ class WalletService {
       const amountPaid = paystackService.toNaira(verification.data.amount);
       const processingFee = 0; // Paystack charges the customer directly
 
-      // Update wallet balance and payment status in a transaction
+      // Update wallet balance, spending trackers, and payment status in a transaction
       const [updatedWallet, updatedPayment] = await prisma.$transaction([
         prisma.wallet.update({
           where: { id: wallet.id },
@@ -174,6 +262,8 @@ class WalletService {
             balance: { increment: amountPaid },
             ledgerBalance: { increment: amountPaid },
             availableBalance: { increment: amountPaid },
+            dailyFundingSpent: { increment: amountPaid },
+            monthlyFundingSpent: { increment: amountPaid },
             lastTransactionAt: new Date(),
           },
         }),
