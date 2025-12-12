@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Table, StatusBadge, Button } from '@/components';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect } from 'react';
+import { Card, Table, Button } from '@/components';
 import { admin } from '@/lib/api';
 import {
   Users,
@@ -49,52 +50,61 @@ interface User {
     monthlyLimit: number;
     dailyFundingSpent: number;
     monthlyFundingSpent: number;
-    isFrozen: boolean;
   };
-  _count?: {
-    payments: number;
-    loans: number;
-  };
-}
-
-interface Activity {
-  id: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  type: string;
-  description: string;
-  amount?: number;
-  status: string;
-  createdAt: string;
 }
 
 interface Stats {
   totalUsers: number;
   activeUsers: number;
-  pendingApprovalUsers: number;
+  pendingApprovals: number;
   suspendedUsers: number;
-  totalWalletBalance: number;
   totalTransactions: number;
-  completedTransactions: number;
   totalVolume: number;
-  pendingLoans: number;
-  activeLoans: number;
+  growthRate: number;
+  usersByStatus: { status: string; count: number }[];
+  transactionTrend: { date: string; count: number; volume: number }[];
 }
 
-interface LimitModalProps {
+interface Activity {
+  id: string;
+  type: string;
+  userId: string;
+  amount?: number;
+  status: string;
+  createdAt: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+// SetLimitsModal component
+const SetLimitsModal = ({
+  user,
+  onClose,
+  onUpdate
+}: {
   user: User;
   onClose: () => void;
-  onUpdate: (userId: string, limits: { dailyLimit?: number; monthlyLimit?: number }) => void;
-}
+  onUpdate: () => void;
+}) => {
+  const [dailyLimit, setDailyLimit] = useState(user.wallet?.dailyLimit || 0);
+  const [monthlyLimit, setMonthlyLimit] = useState(user.wallet?.monthlyLimit || 0);
+  const [submitting, setSubmitting] = useState(false);
 
-const LimitModal: React.FC<LimitModalProps> = ({ user, onClose, onUpdate }) => {
-  const [dailyLimit, setDailyLimit] = useState(user.wallet?.dailyLimit || 100000);
-  const [monthlyLimit, setMonthlyLimit] = useState(user.wallet?.monthlyLimit || 500000);
-
-  const handleSubmit = () => {
-    onUpdate(user.id, { dailyLimit, monthlyLimit });
-    onClose();
+  const handleSubmit = async () => {
+    try {
+      setSubmitting(true);
+      await admin.updateLimits(user.id, { dailyLimit, monthlyLimit });
+      toast.success('Limits updated successfully');
+      onUpdate();
+      onClose();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update limits');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -116,6 +126,7 @@ const LimitModal: React.FC<LimitModalProps> = ({ user, onClose, onUpdate }) => {
               onChange={(e) => setDailyLimit(parseFloat(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               min="0"
+              disabled={submitting}
             />
             <p className="text-xs text-gray-500 mt-1">
               Current spent: ₦{user.wallet?.dailyFundingSpent?.toLocaleString() || 0}
@@ -132,6 +143,7 @@ const LimitModal: React.FC<LimitModalProps> = ({ user, onClose, onUpdate }) => {
               onChange={(e) => setMonthlyLimit(parseFloat(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               min="0"
+              disabled={submitting}
             />
             <p className="text-xs text-gray-500 mt-1">
               Current spent: ₦{user.wallet?.monthlyFundingSpent?.toLocaleString() || 0}
@@ -140,11 +152,11 @@ const LimitModal: React.FC<LimitModalProps> = ({ user, onClose, onUpdate }) => {
         </div>
 
         <div className="flex gap-2 mt-6">
-          <Button variant="outline" onClick={onClose} className="flex-1">
+          <Button variant="outline" onClick={onClose} className="flex-1" disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="flex-1">
-            Update Limits
+          <Button onClick={handleSubmit} className="flex-1" disabled={submitting}>
+            {submitting ? 'Updating...' : 'Update Limits'}
           </Button>
         </div>
       </div>
@@ -157,126 +169,163 @@ export default function AdminDashboardPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const queryClient = useQueryClient();
+
+  // Data state
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+
+  // Loading state
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   // Fetch dashboard stats
-  const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
-    queryKey: ['admin-stats'],
-    queryFn: async () => {
+  const fetchStats = async () => {
+    try {
+      setStatsLoading(true);
       const response = await admin.getStats();
-      return response.data.data;
-    },
-  });
+      setStats(response.data.data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      toast.error('Failed to load dashboard stats');
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   // Fetch users
-  const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['admin-users', searchQuery, statusFilter],
-    queryFn: async () => {
+  const fetchUsers = async () => {
+    try {
+      setUsersLoading(true);
       const response = await admin.getUsers({
         search: searchQuery || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
       });
-      return response.data.data;
-    },
-    enabled: activeTab === 'users',
-  });
+      setUsers(response.data.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
 
   // Fetch pending approvals
-  const { data: pendingUsers, isLoading: pendingLoading } = useQuery<User[]>({
-    queryKey: ['admin-pending-approvals'],
-    queryFn: async () => {
+  const fetchPendingUsers = async () => {
+    try {
+      setPendingLoading(true);
       const response = await admin.getPendingApprovals();
-      return response.data.data;
-    },
-    enabled: activeTab === 'pending',
-  });
+      setPendingUsers(response.data.data);
+    } catch (error) {
+      console.error('Error fetching pending users:', error);
+      toast.error('Failed to load pending approvals');
+    } finally {
+      setPendingLoading(false);
+    }
+  };
 
   // Fetch activities
-  const { data: activities, isLoading: activitiesLoading } = useQuery<Activity[]>({
-    queryKey: ['admin-activities'],
-    queryFn: async () => {
+  const fetchActivities = async () => {
+    try {
+      setActivitiesLoading(true);
       const response = await admin.getActivities(50);
-      return response.data.data;
-    },
-    enabled: activeTab === 'activities',
-  });
+      setActivities(response.data.data);
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+      toast.error('Failed to load activities');
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
 
-  // Mutations
-  const approveMutation = useMutation({
-    mutationFn: (userId: string) => admin.approveUser(userId),
-    onSuccess: () => {
+  // Load data based on active tab
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchStats();
+    } else if (activeTab === 'users') {
+      fetchUsers();
+    } else if (activeTab === 'pending') {
+      fetchPendingUsers();
+    } else if (activeTab === 'activities') {
+      fetchActivities();
+    }
+  }, [activeTab]);
+
+  // Reload users when search or filter changes
+  useEffect(() => {
+    if (activeTab === 'users') {
+      const timer = setTimeout(() => {
+        fetchUsers();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, statusFilter]);
+
+  // Action handlers
+  const handleApprove = async (userId: string) => {
+    try {
+      await admin.approveUser(userId);
       toast.success('User approved successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-    },
-    onError: (error: any) => {
+      fetchPendingUsers();
+      fetchStats();
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to approve user');
-    },
-  });
+    }
+  };
 
-  const rejectMutation = useMutation({
-    mutationFn: (userId: string) => admin.rejectUser(userId),
-    onSuccess: () => {
+  const handleReject = async (userId: string) => {
+    try {
+      await admin.rejectUser(userId);
       toast.success('User rejected successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-pending-approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-    },
-    onError: (error: any) => {
+      fetchPendingUsers();
+      fetchStats();
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to reject user');
-    },
-  });
+    }
+  };
 
-  const suspendMutation = useMutation({
-    mutationFn: (userId: string) => admin.suspendUser(userId),
-    onSuccess: () => {
+  const handleSuspend = async (userId: string) => {
+    try {
+      await admin.suspendUser(userId);
       toast.success('User suspended successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-    },
-    onError: (error: any) => {
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to suspend user');
-    },
-  });
+    }
+  };
 
-  const activateMutation = useMutation({
-    mutationFn: (userId: string) => admin.activateUser(userId),
-    onSuccess: () => {
+  const handleActivate = async (userId: string) => {
+    try {
+      await admin.activateUser(userId);
       toast.success('User activated successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-    },
-    onError: (error: any) => {
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to activate user');
-    },
-  });
+    }
+  };
 
-  const deactivateMutation = useMutation({
-    mutationFn: (userId: string) => admin.deactivateUser(userId),
-    onSuccess: () => {
+  const handleDeactivate = async (userId: string) => {
+    try {
+      await admin.deactivateUser(userId);
       toast.success('User deactivated successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-    },
-    onError: (error: any) => {
+      fetchUsers();
+      fetchStats();
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to deactivate user');
-    },
-  });
+    }
+  };
 
-  const updateLimitsMutation = useMutation({
-    mutationFn: ({ userId, limits }: { userId: string; limits: { dailyLimit?: number; monthlyLimit?: number } }) =>
-      admin.updateLimits(userId, limits),
-    onSuccess: () => {
-      toast.success('Limits updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      setSelectedUser(null);
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update limits');
-    },
-  });
+  const handleUpdateLimits = () => {
+    fetchUsers();
+    setSelectedUser(null);
+  };
 
+  // Table columns
   const pendingColumns = [
     {
       key: 'user',
@@ -349,30 +398,34 @@ export default function AdminDashboardPage() {
       header: 'Actions',
       render: (user: User) => (
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="success"
-            onClick={() => approveMutation.mutate(user.id)}
-            disabled={approveMutation.isPending}
+          <button
+            onClick={() => handleApprove(user.id)}
+            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+            title="Approve"
           >
-            <Check className="h-4 w-4 mr-1" />
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="danger"
-            onClick={() => rejectMutation.mutate(user.id)}
-            disabled={rejectMutation.isPending}
+            <Check className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => handleReject(user.id)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Reject"
           >
-            <X className="h-4 w-4 mr-1" />
-            Reject
-          </Button>
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ),
     },
   ];
 
-  const userColumns = [
+  const statusColors: Record<string, string> = {
+    ACTIVE: 'bg-green-100 text-green-800',
+    PENDING_APPROVAL: 'bg-orange-100 text-orange-800',
+    PENDING_VERIFICATION: 'bg-yellow-100 text-yellow-800',
+    SUSPENDED: 'bg-red-100 text-red-800',
+    INACTIVE: 'bg-gray-100 text-gray-800',
+  };
+
+  const usersColumns = [
     {
       key: 'user',
       header: 'User',
@@ -393,38 +446,37 @@ export default function AdminDashboardPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (user: User) => {
-        const statusColors: Record<string, string> = {
-          ACTIVE: 'bg-green-100 text-green-800',
-          PENDING_APPROVAL: 'bg-orange-100 text-orange-800',
-          PENDING_VERIFICATION: 'bg-yellow-100 text-yellow-800',
-          SUSPENDED: 'bg-red-100 text-red-800',
-          INACTIVE: 'bg-gray-100 text-gray-800',
-        };
-        return (
-          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[user.status] || 'bg-gray-100 text-gray-800'}`}>
-            {user.status.replace(/_/g, ' ')}
-          </span>
-        );
-      },
+      render: (user: User) => (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[user.status] || 'bg-gray-100 text-gray-800'}`}>
+          {user.status.replace(/_/g, ' ')}
+        </span>
+      ),
     },
     {
-      key: 'balance',
+      key: 'wallet',
       header: 'Wallet',
       render: (user: User) => (
         <div>
-          <p className="font-semibold text-gray-900">₦{user.wallet?.balance?.toLocaleString() || 0}</p>
+          <p className="text-sm font-medium text-gray-900">
+            ₦{user.wallet?.balance?.toLocaleString() || '0'}
+          </p>
           <p className="text-xs text-gray-500">
-            Limit: ₦{user.wallet?.dailyLimit?.toLocaleString() || 0}/day
+            Limits: ₦{user.wallet?.dailyLimit?.toLocaleString() || '0'}/day
           </p>
         </div>
       ),
     },
     {
-      key: 'transactions',
-      header: 'Activity',
+      key: 'joined',
+      header: 'Joined',
       render: (user: User) => (
-        <p className="text-sm text-gray-600">{user._count?.payments || 0} payments</p>
+        <p className="text-sm text-gray-600">
+          {new Date(user.createdAt).toLocaleDateString('en-NG', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
+        </p>
       ),
     },
     {
@@ -432,368 +484,352 @@ export default function AdminDashboardPage() {
       header: 'Actions',
       render: (user: User) => (
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
+          <button
             onClick={() => setSelectedUser(user)}
+            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
             title="Set Limits"
           >
             <Settings className="h-4 w-4" />
-          </Button>
-          {user.status === 'ACTIVE' ? (
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={() => suspendMutation.mutate(user.id)}
-              disabled={suspendMutation.isPending}
-              title="Suspend User"
+          </button>
+          {user.status === 'ACTIVE' && (
+            <button
+              onClick={() => handleSuspend(user.id)}
+              className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              title="Suspend"
             >
               <Ban className="h-4 w-4" />
-            </Button>
-          ) : user.status === 'SUSPENDED' ? (
-            <Button
-              size="sm"
-              variant="success"
-              onClick={() => activateMutation.mutate(user.id)}
-              disabled={activateMutation.isPending}
-              title="Activate User"
+            </button>
+          )}
+          {user.status === 'SUSPENDED' && (
+            <button
+              onClick={() => handleActivate(user.id)}
+              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              title="Activate"
             >
               <UserCheck className="h-4 w-4" />
-            </Button>
-          ) : null}
-          {user.status !== 'INACTIVE' && (
-            <Button
-              size="sm"
-              variant="danger"
-              onClick={() => deactivateMutation.mutate(user.id)}
-              disabled={deactivateMutation.isPending}
-              title="Remove User"
+            </button>
+          )}
+          {user.status === 'ACTIVE' && (
+            <button
+              onClick={() => handleDeactivate(user.id)}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Deactivate"
             >
               <UserX className="h-4 w-4" />
-            </Button>
+            </button>
           )}
         </div>
       ),
     },
   ];
 
-  const activityColumns = [
-    {
-      key: 'user',
-      header: 'User',
-      render: (activity: Activity) => (
-        <div>
-          <p className="font-medium text-gray-900">{activity.userName}</p>
-          <p className="text-xs text-gray-500">{activity.userEmail}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Activity Type',
-      render: (activity: Activity) => (
-        <div>
-          <p className="text-sm text-gray-900">{activity.type.replace(/_/g, ' ')}</p>
-          <p className="text-xs text-gray-500">{activity.description}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'amount',
-      header: 'Amount',
-      render: (activity: Activity) => (
-        activity.amount ? (
-          <p className="font-semibold text-gray-900">₦{activity.amount.toLocaleString()}</p>
-        ) : (
-          <p className="text-sm text-gray-400">-</p>
-        )
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (activity: Activity) => {
-        const statusColors: Record<string, string> = {
-          COMPLETED: 'bg-green-100 text-green-800',
-          PENDING: 'bg-yellow-100 text-yellow-800',
-          PROCESSING: 'bg-blue-100 text-blue-800',
-          FAILED: 'bg-red-100 text-red-800',
-          CANCELLED: 'bg-gray-100 text-gray-800',
-        };
-        return (
-          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[activity.status] || 'bg-gray-100 text-gray-800'}`}>
-            {activity.status}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'time',
-      header: 'Time',
-      render: (activity: Activity) => (
-        <p className="text-sm text-gray-600">
-          {new Date(activity.createdAt).toLocaleString('en-NG', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </p>
-      ),
-    },
-  ];
+  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-1">Manage users, monitor activities, and control platform settings</p>
-      </div>
-
-      {/* Navigation Tabs */}
-      <Card>
-        <div className="flex gap-2 border-b border-gray-200 -mx-6 -mt-6 px-6">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-6 py-3 font-medium border-b-2 transition ${
-              activeTab === 'overview'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Overview</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-6 py-3 font-medium border-b-2 transition ${
-              activeTab === 'pending'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              <span>Pending Approvals</span>
-              {stats && stats.pendingApprovalUsers > 0 && (
-                <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-600 text-xs font-semibold rounded-full">
-                  {stats.pendingApprovalUsers}
-                </span>
-              )}
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-6 py-3 font-medium border-b-2 transition ${
-              activeTab === 'users'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span>All Users</span>
-            </div>
-          </button>
-          <button
-            onClick={() => setActiveTab('activities')}
-            className={`px-6 py-3 font-medium border-b-2 transition ${
-              activeTab === 'activities'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              <span>Activities</span>
-            </div>
-          </button>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <p className="text-gray-600 mt-1">Manage users, approvals, and platform activities</p>
         </div>
-      </Card>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <>
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Users</p>
-                  <p className="text-3xl font-bold text-blue-600">{stats?.totalUsers?.toLocaleString() || 0}</p>
-                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    {stats?.activeUsers || 0} active
-                  </p>
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="flex -mb-px">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'overview'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  <span>Overview</span>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <Users className="h-8 w-8 text-blue-600" />
+              </button>
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'pending'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  <span>Pending Approvals</span>
+                  {stats && stats.pendingApprovals > 0 && (
+                    <span className="ml-2 px-2 py-0.5 text-xs font-semibold text-white bg-orange-500 rounded-full">
+                      {stats.pendingApprovals}
+                    </span>
+                  )}
                 </div>
-              </div>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Pending Approval</p>
-                  <p className="text-3xl font-bold text-orange-600">{stats?.pendingApprovalUsers || 0}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Awaiting admin action
-                  </p>
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'users'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <span>All Users</span>
                 </div>
-                <div className="p-3 bg-orange-100 rounded-full">
-                  <Clock className="h-8 w-8 text-orange-600" />
+              </button>
+              <button
+                onClick={() => setActiveTab('activities')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'activities'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  <span>Recent Activities</span>
                 </div>
-              </div>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Transaction Volume</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ₦{((stats?.totalVolume || 0) / 1_000_000).toFixed(1)}M
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {stats?.completedTransactions?.toLocaleString() || 0} completed
-                  </p>
-                </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <DollarSign className="h-8 w-8 text-green-600" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Wallet Balance</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    ₦{((stats?.totalWalletBalance || 0) / 1_000_000).toFixed(2)}M
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Platform liquidity
-                  </p>
-                </div>
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <TrendingUp className="h-8 w-8 text-purple-600" />
-                </div>
-              </div>
-            </Card>
+              </button>
+            </nav>
           </div>
+        </div>
 
-          {/* Recent Activities */}
-          <Card title="Recent System Activities">
-            {activitiesLoading ? (
-              <div className="py-8 text-center text-gray-500">Loading...</div>
-            ) : activities && activities.length > 0 ? (
-              <Table
-                data={activities.slice(0, 10)}
-                columns={activityColumns}
-                emptyMessage="No activities found"
-              />
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {statsLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                <p className="mt-2 text-gray-600">Loading stats...</p>
+              </div>
+            ) : stats ? (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Total Users</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalUsers}</p>
+                      </div>
+                      <div className="p-3 bg-indigo-100 rounded-lg">
+                        <Users className="h-6 w-6 text-indigo-600" />
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Active Users</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.activeUsers}</p>
+                      </div>
+                      <div className="p-3 bg-green-100 rounded-lg">
+                        <UserCheck className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingApprovals}</p>
+                      </div>
+                      <div className="p-3 bg-orange-100 rounded-lg">
+                        <Clock className="h-6 w-6 text-orange-600" />
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Total Volume</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-2">
+                          ₦{(stats.totalVolume / 1000).toFixed(1)}k
+                        </p>
+                      </div>
+                      <div className="p-3 bg-purple-100 rounded-lg">
+                        <DollarSign className="h-6 w-6 text-purple-600" />
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Users by Status</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={stats.usersByStatus}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ status, count }) => `${status}: ${count}`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="count"
+                        >
+                          {stats.usersByStatus.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </Card>
+
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction Trend</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={stats.transactionTrend}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Area type="monotone" dataKey="count" stroke="#6366f1" fill="#6366f1" fillOpacity={0.6} name="Count" />
+                        <Area type="monotone" dataKey="volume" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name="Volume (₦)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </Card>
+                </div>
+              </>
             ) : (
-              <div className="py-8 text-center text-gray-500">No activities found</div>
+              <div className="text-center py-12 text-gray-500">No stats available</div>
+            )}
+          </div>
+        )}
+
+        {/* Pending Approvals Tab */}
+        {activeTab === 'pending' && (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Pending User Approvals</h2>
+              <span className="text-sm text-gray-500">{pendingUsers.length} pending</span>
+            </div>
+            {pendingLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                <p className="mt-2 text-gray-600">Loading pending approvals...</p>
+              </div>
+            ) : pendingUsers.length > 0 ? (
+              <Table columns={pendingColumns} data={pendingUsers} />
+            ) : (
+              <div className="text-center py-12">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <p className="text-gray-500">No pending approvals</p>
+              </div>
             )}
           </Card>
-        </>
-      )}
+        )}
 
-      {/* Pending Approvals Tab */}
-      {activeTab === 'pending' && (
-        <Card>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Users Pending Approval</h3>
-            <p className="text-sm text-gray-600">Review and approve new user registrations</p>
-          </div>
-
-          {pendingLoading ? (
-            <div className="py-8 text-center text-gray-500">Loading...</div>
-          ) : pendingUsers && pendingUsers.length > 0 ? (
-            <Table
-              data={pendingUsers}
-              columns={pendingColumns}
-              emptyMessage="No pending approvals"
-            />
-          ) : (
-            <div className="py-8 text-center text-gray-500">
-              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />
-              <p>All users have been reviewed!</p>
+        {/* All Users Tab */}
+        {activeTab === 'users' && (
+          <Card className="p-6">
+            <div className="mb-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">All Users</h2>
+              </div>
+              <div className="flex gap-4">
+                <input
+                  type="text"
+                  placeholder="Search by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="PENDING_APPROVAL">Pending Approval</option>
+                  <option value="PENDING_VERIFICATION">Pending Verification</option>
+                  <option value="SUSPENDED">Suspended</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
             </div>
-          )}
-        </Card>
-      )}
+            {usersLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                <p className="mt-2 text-gray-600">Loading users...</p>
+              </div>
+            ) : users.length > 0 ? (
+              <Table columns={usersColumns} data={users} />
+            ) : (
+              <div className="text-center py-12 text-gray-500">No users found</div>
+            )}
+          </Card>
+        )}
 
-      {/* Users Tab */}
-      {activeTab === 'users' && (
-        <Card>
-          <div className="mb-4 flex items-center gap-4">
-            <input
-              type="text"
-              placeholder="Search users by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="ALL">All Status</option>
-              <option value="ACTIVE">Active</option>
-              <option value="PENDING_APPROVAL">Pending Approval</option>
-              <option value="SUSPENDED">Suspended</option>
-              <option value="INACTIVE">Inactive</option>
-            </select>
-          </div>
+        {/* Recent Activities Tab */}
+        {activeTab === 'activities' && (
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activities</h2>
+            {activitiesLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+                <p className="mt-2 text-gray-600">Loading activities...</p>
+              </div>
+            ) : activities.length > 0 ? (
+              <div className="space-y-4">
+                {activities.map((activity) => (
+                  <div key={activity.id} className="flex items-center justify-between py-4 border-b border-gray-200 last:border-b-0">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <Activity className="h-5 w-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {activity.user.firstName} {activity.user.lastName}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {activity.type} • {new Date(activity.createdAt).toLocaleString('en-NG')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {activity.amount && (
+                        <p className="font-medium text-gray-900">₦{activity.amount.toLocaleString()}</p>
+                      )}
+                      <p className={`text-sm ${
+                        activity.status === 'COMPLETED' ? 'text-green-600' :
+                        activity.status === 'FAILED' ? 'text-red-600' :
+                        'text-orange-600'
+                      }`}>
+                        {activity.status}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">No activities found</div>
+            )}
+          </Card>
+        )}
 
-          {usersLoading ? (
-            <div className="py-8 text-center text-gray-500">Loading...</div>
-          ) : usersData?.users && usersData.users.length > 0 ? (
-            <Table
-              data={usersData.users}
-              columns={userColumns}
-              emptyMessage="No users found"
-            />
-          ) : (
-            <div className="py-8 text-center text-gray-500">No users found</div>
-          )}
-        </Card>
-      )}
-
-      {/* Activities Tab */}
-      {activeTab === 'activities' && (
-        <Card>
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">System Activities</h3>
-            <p className="text-sm text-gray-600">Monitor all platform transactions and activities</p>
-          </div>
-
-          {activitiesLoading ? (
-            <div className="py-8 text-center text-gray-500">Loading...</div>
-          ) : activities && activities.length > 0 ? (
-            <Table
-              data={activities}
-              columns={activityColumns}
-              emptyMessage="No activities found"
-            />
-          ) : (
-            <div className="py-8 text-center text-gray-500">No activities found</div>
-          )}
-        </Card>
-      )}
-
-      {/* Limit Modal */}
-      {selectedUser && (
-        <LimitModal
-          user={selectedUser}
-          onClose={() => setSelectedUser(null)}
-          onUpdate={(userId, limits) => updateLimitsMutation.mutate({ userId, limits })}
-        />
-      )}
+        {/* Set Limits Modal */}
+        {selectedUser && (
+          <SetLimitsModal
+            user={selectedUser}
+            onClose={() => setSelectedUser(null)}
+            onUpdate={handleUpdateLimits}
+          />
+        )}
+      </div>
     </div>
   );
 }
