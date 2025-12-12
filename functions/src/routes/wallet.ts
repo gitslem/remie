@@ -5,26 +5,37 @@ import { authenticate } from './auth';
 const router = Router();
 const db = admin.firestore();
 
-// Version 2.0.0 - Full Paystack integration with proper API response format
+// Version 2.0.1 - Full Paystack integration with consistent wallet structure
 // Initialize wallet if it doesn't exist
 const ensureWalletExists = async (userId: string) => {
   const walletRef = db.collection('wallets').doc(userId);
-  const walletDoc = await walletRef.get();
 
-  if (!walletDoc.exists) {
-    await walletRef.set({
-      userId,
-      balance: 0,
-      availableBalance: 0,
-      ledgerBalance: 0,
-      currency: 'NGN',
-      dailyLimit: 100000,
-      monthlyLimit: 500000,
-      isActive: true,
-      isFrozen: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+  try {
+    const walletDoc = await walletRef.get();
+
+    if (!walletDoc.exists) {
+      console.log(`Creating new wallet for user: ${userId}`);
+      // Create wallet with all fields consistent with auth.ts wallet creation
+      await walletRef.set({
+        userId,
+        balance: 0,
+        ledgerBalance: 0,
+        availableBalance: 0,
+        usdtBalance: 0,
+        usdcBalance: 0,
+        currency: 'NGN',
+        dailyLimit: 100000,
+        monthlyLimit: 500000,
+        isActive: true,
+        isFrozen: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      console.log(`Wallet created successfully for user: ${userId}`);
+    }
+  } catch (error: any) {
+    console.error(`Error ensuring wallet exists for user ${userId}:`, error);
+    throw new Error(`Failed to ensure wallet exists: ${error.message}`);
   }
 
   return walletRef;
@@ -99,6 +110,8 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
     const { uid, email } = (req as any).user;
     const { amount, callbackUrl } = req.body;
 
+    console.log(`Fund wallet request from user ${uid} for amount: ₦${amount}`);
+
     if (!amount || amount < 100 || amount > 1000000) {
       res.status(400).json({
         success: false,
@@ -108,8 +121,10 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
     }
 
     // Ensure wallet exists
+    console.log(`Ensuring wallet exists for user: ${uid}`);
     const walletRef = await ensureWalletExists(uid);
     const wallet = (await walletRef.get()).data();
+    console.log(`Wallet retrieved for user ${uid}, frozen status: ${wallet?.isFrozen}`);
 
     if (wallet?.isFrozen) {
       res.status(400).json({
@@ -121,8 +136,10 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
 
     // Generate unique reference
     const reference = `REMIE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
+    console.log(`Generated payment reference: ${reference}`);
 
     // Create pending payment record
+    console.log(`Creating payment document for reference: ${reference}`);
     await db.collection('payments').doc(reference).set({
       userId: uid,
       type: 'WALLET_FUNDING',
@@ -137,6 +154,7 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    console.log(`Payment document created successfully for reference: ${reference}`);
 
     // Initialize Paystack payment
     const paystackData = await callPaystackAPI('/transaction/initialize', 'POST', {
@@ -150,6 +168,8 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
       },
     });
 
+    console.log(`Paystack payment initialized successfully for reference: ${reference}`);
+
     res.status(200).json({
       success: true,
       message: 'Payment initialized. Complete payment to fund your wallet.',
@@ -160,9 +180,18 @@ router.post('/fund', authenticate, async (req: Request, res: Response): Promise<
       },
     });
   } catch (error: any) {
+    console.error(`Fund wallet error for user ${(req as any).user?.uid}:`, {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
     res.status(400).json({
       success: false,
       message: error.message || 'Failed to initiate wallet funding',
+      error: {
+        code: error.code,
+        details: error.message,
+      },
     });
   }
 });
