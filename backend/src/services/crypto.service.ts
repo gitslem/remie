@@ -1,7 +1,8 @@
-import { PrismaClient, CryptoType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { ethers } from 'ethers';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
+import { CryptoType } from '../types/prisma-enums';
 
 const prisma = new PrismaClient();
 

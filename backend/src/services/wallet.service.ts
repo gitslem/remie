@@ -1,8 +1,9 @@
-import { PrismaClient, PaymentMethod, PaymentStatus, PaymentType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import paystackService from './paystack.service';
 import receiptService from './receipt.service';
 import emailService from './email.service';
 import logger from '../utils/logger';
+import { PaymentMethod, PaymentStatus, PaymentType } from '../types/prisma-enums';
 
 const prisma = new PrismaClient();
 
