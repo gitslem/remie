@@ -37,7 +37,23 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 router.post('/create-profile', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { uid } = (req as any).user;
-    const { firstName, lastName, phoneNumber, studentId, institution } = req.body;
+    const { firstName, lastName, phoneNumber, studentId, institution, nickname } = req.body;
+
+    // Validate nickname if provided (optional during signup)
+    if (nickname) {
+      const nicknameExists = await db.collection('users')
+        .where('nickname', '==', nickname.toLowerCase())
+        .limit(1)
+        .get();
+
+      if (!nicknameExists.empty) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Nickname already taken',
+        });
+        return;
+      }
+    }
 
     // Create user document
     await db.collection('users').doc(uid).set({
@@ -47,6 +63,7 @@ router.post('/create-profile', authenticate, async (req: Request, res: Response)
       phoneNumber,
       studentId,
       institution,
+      nickname: nickname ? nickname.toLowerCase() : null,
       role: 'STUDENT',
       status: 'PENDING_VERIFICATION',
       emailVerified: false,

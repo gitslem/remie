@@ -60,9 +60,10 @@ export default function P2PPage() {
         headers: { Authorization: `Bearer ${token}` },
         params: { page: 1, limit: 10 },
       });
-      setTransfers(response.data.data || []);
+      setTransfers(response.data.data?.transfers || []);
     } catch (error) {
       console.error('Error fetching transfers:', error);
+      setTransfers([]);
     }
   };
 
@@ -132,7 +133,7 @@ export default function P2PPage() {
           <div>
             <h3 className="font-semibold text-indigo-900 mb-1">Peer-to-Peer Transfers</h3>
             <p className="text-sm text-indigo-700">
-              Send money instantly to other REMIE users using their email address. Transfers are instant and free!
+              Send money instantly to other REMIE users using their email address or nickname. Transfers are instant and free!
             </p>
           </div>
         </div>
@@ -151,16 +152,19 @@ export default function P2PPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Recipient Email
+              Recipient Email or Nickname
             </label>
             <input
-              type="email"
+              type="text"
               value={formData.receiverEmail}
               onChange={(e) => setFormData({ ...formData, receiverEmail: e.target.value })}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="recipient@example.com"
+              placeholder="recipient@example.com or @nickname"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter recipient's email address or nickname (e.g., @john)
+            </p>
           </div>
 
           <div>

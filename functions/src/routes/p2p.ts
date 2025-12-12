@@ -19,16 +19,24 @@ router.post('/send', authenticate, async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Find receiver
-    const receiverSnapshot = await db.collection('users')
+    // Find receiver by email or nickname
+    let receiverSnapshot = await db.collection('users')
       .where('email', '==', receiverIdentifier)
       .limit(1)
       .get();
 
+    // If not found by email, try nickname
+    if (receiverSnapshot.empty) {
+      receiverSnapshot = await db.collection('users')
+        .where('nickname', '==', receiverIdentifier.toLowerCase())
+        .limit(1)
+        .get();
+    }
+
     if (receiverSnapshot.empty) {
       res.status(404).json({
         status: 'error',
-        message: 'Receiver not found',
+        message: 'Receiver not found. Check email or nickname.',
       });
       return;
     }
