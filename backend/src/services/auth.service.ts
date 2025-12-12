@@ -27,15 +27,21 @@ export class AuthService {
   // Generate JWT token
   private generateToken(userId: string, email: string, role: string): string {
     const secret = process.env.JWT_SECRET || 'your-secret-key';
-    const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as string;
-    return jwt.sign({ userId, email, role }, secret, { expiresIn });
+    return jwt.sign(
+      { userId, email, role },
+      secret,
+      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string | number }
+    );
   }
 
   // Generate refresh token
   private generateRefreshToken(userId: string): string {
     const secret = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
-    const expiresIn = (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as string;
-    return jwt.sign({ userId }, secret, { expiresIn });
+    return jwt.sign(
+      { userId },
+      secret,
+      { expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as string | number }
+    );
   }
 
   // Hash password
