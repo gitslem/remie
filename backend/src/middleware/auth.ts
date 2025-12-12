@@ -46,8 +46,14 @@ export const authenticate = async (
       return next(new AppError('User no longer exists', 401));
     }
 
-    if (user.status !== 'ACTIVE') {
-      return next(new AppError('Account is not active', 403));
+    // Allow ACTIVE, PENDING_VERIFICATION, and PENDING_APPROVAL users to authenticate
+    // but specific features will be restricted based on status in service layer
+    if (user.status === 'INACTIVE') {
+      return next(new AppError('Account is inactive. Please contact support.', 403));
+    }
+
+    if (user.status === 'SUSPENDED') {
+      return next(new AppError('Account has been suspended. Please contact support.', 403));
     }
 
     req.user = {

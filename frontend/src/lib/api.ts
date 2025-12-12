@@ -143,4 +143,36 @@ export const receipts = {
     api.get(`/receipts/${receiptNumber}/download`, { responseType: 'blob' }),
 };
 
+// Admin
+export const admin = {
+  // Dashboard stats
+  getStats: () => api.get('/admin/stats'),
+  getActivities: (limit = 50) => api.get('/admin/activities', { params: { limit } }),
+
+  // User management
+  getUsers: (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }) => api.get('/admin/users', { params }),
+  getPendingApprovals: () => api.get('/admin/users/pending-approval'),
+  getUserDetails: (userId: string) => api.get(`/admin/users/${userId}`),
+
+  // User approval
+  approveUser: (userId: string) => api.post(`/admin/users/${userId}/approve`),
+  rejectUser: (userId: string) => api.post(`/admin/users/${userId}/reject`),
+
+  // User status management
+  suspendUser: (userId: string) => api.post(`/admin/users/${userId}/suspend`),
+  activateUser: (userId: string) => api.post(`/admin/users/${userId}/activate`),
+  deactivateUser: (userId: string) => api.post(`/admin/users/${userId}/deactivate`),
+
+  // Wallet limits management
+  updateLimits: (userId: string, data: {
+    dailyLimit?: number;
+    monthlyLimit?: number;
+  }) => api.put(`/admin/users/${userId}/limits`, data),
+};
+
 export default api;
