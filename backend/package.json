@@ -11,10 +11,13 @@
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "seed": "ts-node prisma/seed.ts"
+    "prisma:generate": "npx --yes prisma@5.7.1 generate",
+    "prisma:migrate": "npx --yes prisma@5.7.1 migrate dev",
+    "prisma:studio": "npx --yes prisma@5.7.1 studio",
+    "prisma:deploy": "npx --yes prisma@5.7.1 migrate deploy",
+    "seed": "ts-node prisma/seed.ts",
+    "migrate": "bash run-migration.sh",
+    "create-admin": "bash create-admin.sh"
   },
   "keywords": [
     "payment",
