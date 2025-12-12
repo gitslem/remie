@@ -1,5 +1,5 @@
-import { PrismaClient, PaymentStatus, PaymentMethod, PaymentType } from '@prisma/client';
-import paystackService from './paystack.service';
+import { PrismaClient } from '@prisma/client';
+import { PaymentStatus, PaymentMethod, PaymentType } from '../types/prisma';
 import emailService from './email.service';
 import logger from '../utils/logger';
 
@@ -177,7 +177,7 @@ class RemittanceService {
       const reference = `REM_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
 
       // Create remittance transaction
-      const [updatedSenderWallet, payment] = await prisma.$transaction([
+      const [_updatedSenderWallet, payment] = await prisma.$transaction([
         // Deduct from sender
         prisma.wallet.update({
           where: { id: senderWallet.id },
@@ -216,7 +216,7 @@ class RemittanceService {
 
       // In a real system, this would integrate with a remittance provider
       // For now, we'll mark it as completed and credit the recipient
-      const [finalPayment, recipientWallet] = await prisma.$transaction([
+      const [finalPayment, _recipientWallet] = await prisma.$transaction([
         prisma.payment.update({
           where: { id: payment.id },
           data: {

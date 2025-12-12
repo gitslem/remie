@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import adminController from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middleware/auth';
+import { UserRole } from '../types/prisma';
 
 const router = Router();
 
 // All admin routes require authentication and ADMIN role
 router.use(authenticate);
-router.use(authorize('ADMIN'));
+router.use(authorize(UserRole.ADMIN));
 
 // Dashboard stats
 router.get('/stats', adminController.getDashboardStats);

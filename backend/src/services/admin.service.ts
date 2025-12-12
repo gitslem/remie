@@ -1,4 +1,5 @@
-import { PrismaClient, UserStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { UserStatus } from '../types/prisma';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 
@@ -418,7 +419,7 @@ class AdminService {
         take: limit,
       });
 
-      return payments.map((payment) => ({
+      return payments.map((payment: any) => ({
         id: payment.id,
         userId: payment.userId,
         userName: `${payment.user.firstName} ${payment.user.lastName}`,

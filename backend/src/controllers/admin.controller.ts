@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import adminService from '../services/admin.service';
 import { AppError } from '../middleware/errorHandler';
-import { UserStatus } from '@prisma/client';
+import { UserStatus } from '../types/prisma';
 
 export class AdminController {
   /**
@@ -30,7 +30,7 @@ export class AdminController {
   /**
    * Get users pending approval
    */
-  async getPendingApprovals(req: Request, res: Response, next: NextFunction) {
+  async getPendingApprovals(_req: Request, res: Response, next: NextFunction) {
     try {
       const users = await adminService.getPendingApprovals();
 
@@ -211,7 +211,7 @@ export class AdminController {
   /**
    * Get dashboard statistics
    */
-  async getDashboardStats(req: Request, res: Response, next: NextFunction) {
+  async getDashboardStats(_req: Request, res: Response, next: NextFunction) {
     try {
       const stats = await adminService.getDashboardStats();
 

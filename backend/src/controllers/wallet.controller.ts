@@ -51,14 +51,14 @@ export const fundWallet = async (req: Request, res: Response) => {
       metadata,
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Payment initialized. Complete payment to fund your wallet.',
       data: result,
     });
   } catch (error: any) {
     logger.error('Fund wallet error', { error: error.message });
-    res.status(400).json({
+    return res.status(400).json({
       success: false,
       message: error.message || 'Failed to initiate wallet funding',
     });
@@ -114,7 +114,7 @@ export const withdraw = async (req: Request, res: Response) => {
       reason,
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: result.message,
       data: {
@@ -124,7 +124,7 @@ export const withdraw = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error('Withdraw error', { error: error.message });
-    res.status(400).json({
+    return res.status(400).json({
       success: false,
       message: error.message || 'Failed to initiate withdrawal',
     });
@@ -181,7 +181,7 @@ export const getTransaction = async (req: Request, res: Response) => {
 /**
  * List banks
  */
-export const listBanks = async (req: Request, res: Response) => {
+export const listBanks = async (_req: Request, res: Response) => {
   try {
     const banks = await paystackService.listBanks();
 
@@ -218,13 +218,13 @@ export const resolveAccount = async (req: Request, res: Response) => {
       bankCode,
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: accountDetails,
     });
   } catch (error: any) {
     logger.error('Resolve account error', { error: error.message });
-    res.status(400).json({
+    return res.status(400).json({
       success: false,
       message: error.message || 'Failed to resolve account',
     });

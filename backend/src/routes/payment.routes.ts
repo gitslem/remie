@@ -5,19 +5,19 @@ const router = Router();
 
 router.use(authenticate);
 
-router.post('/', (req, res) => {
+router.post('/', (_req, res) => {
   res.json({ message: 'Create payment' });
 });
 
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   res.json({ message: 'Get all payments' });
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', (_req, res) => {
   res.json({ message: 'Get payment by ID' });
 });
 
-router.post('/:id/verify', (req, res) => {
+router.post('/:id/verify', (_req, res) => {
   res.json({ message: 'Verify payment' });
 });
 

@@ -6,19 +6,19 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
-router.get('/profile', (req, res) => {
+router.get('/profile', (_req, res) => {
   res.json({ message: 'Get user profile' });
 });
 
-router.put('/profile', (req, res) => {
+router.put('/profile', (_req, res) => {
   res.json({ message: 'Update user profile' });
 });
 
-router.post('/verify-email', (req, res) => {
+router.post('/verify-email', (_req, res) => {
   res.json({ message: 'Verify email' });
 });
 
-router.post('/verify-phone', (req, res) => {
+router.post('/verify-phone', (_req, res) => {
   res.json({ message: 'Verify phone' });
 });
 

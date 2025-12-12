@@ -24,13 +24,11 @@ export class RRRService {
   private readonly baseUrl: string;
   private readonly merchantId: string;
   private readonly apiKey: string;
-  private readonly serviceTypeId: string;
 
   constructor() {
     this.baseUrl = process.env.REMITA_BASE_URL || 'https://remitademo.net';
     this.merchantId = process.env.REMITA_MERCHANT_ID || '';
     this.apiKey = process.env.REMITA_API_KEY || '';
-    this.serviceTypeId = process.env.REMITA_SERVICE_TYPE_ID || '';
   }
 
   // Generate API hash for Remita

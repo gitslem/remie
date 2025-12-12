@@ -98,7 +98,7 @@ export class P2PService {
       const reference = this.generateReference();
 
       // Perform transfer in transaction
-      const transfer = await prisma.$transaction(async (tx) => {
+      const transfer = await prisma.$transaction(async (tx: any) => {
         // Debit sender
         await tx.wallet.update({
           where: { userId: data.senderId },

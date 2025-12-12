@@ -5,15 +5,15 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   res.json({ message: 'Get all notifications' });
 });
 
-router.put('/:id/read', (req, res) => {
+router.put('/:id/read', (_req, res) => {
   res.json({ message: 'Mark notification as read' });
 });
 
-router.put('/read-all', (req, res) => {
+router.put('/read-all', (_req, res) => {
   res.json({ message: 'Mark all as read' });
 });
 

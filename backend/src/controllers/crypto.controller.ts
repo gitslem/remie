@@ -69,7 +69,7 @@ export class CryptoController {
     }
   }
 
-  async getPlatformWalletAddress(req: Request, res: Response, next: NextFunction) {
+  async getPlatformWalletAddress(_req: Request, res: Response, next: NextFunction) {
     try {
       const result = await cryptoService.getPlatformWalletAddress();
 
@@ -82,7 +82,7 @@ export class CryptoController {
     }
   }
 
-  async getCryptoPrices(req: Request, res: Response, next: NextFunction) {
+  async getCryptoPrices(_req: Request, res: Response, next: NextFunction) {
     try {
       const result = await cryptoService.getCryptoPrices();
 
