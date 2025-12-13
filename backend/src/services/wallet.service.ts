@@ -154,6 +154,9 @@ class WalletService {
           method: PaymentMethod.CARD,
           status: PaymentStatus.PENDING,
           reference,
+          recipientName: user.firstName + ' ' + user.lastName,
+          description: 'Wallet funding via Paystack',
+          totalAmount: params.amount,
           metadata: {
             ...params.metadata,
             walletId: wallet.id,
@@ -428,6 +431,9 @@ class WalletService {
             method: PaymentMethod.BANK_TRANSFER,
             status: PaymentStatus.PROCESSING,
             reference,
+            recipientName: accountName,
+            description: params.reason || 'Wallet withdrawal',
+            totalAmount: params.amount,
             metadata: {
               recipientCode: recipient.data.recipient_code,
               accountNumber: params.bankAccount.accountNumber,
