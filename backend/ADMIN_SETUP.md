@@ -24,12 +24,17 @@ cp .env.example .env
 Edit the `.env` file and set the `DATABASE_URL` to match your database connection:
 
 ```env
+# For Google Cloud SQL (via cloud-sql-proxy on port 5433)
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5433/remie-database?schema=public"
+
 # For local development with Docker
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/remie?schema=public"
 
 # For production (example)
 DATABASE_URL="postgresql://username:password@host:port/database?schema=public"
 ```
+
+**📌 Using Google Cloud SQL?** See [QUICKSTART_GOOGLE_CLOUD.md](./QUICKSTART_GOOGLE_CLOUD.md) for detailed setup instructions.
 
 ### Step 3: Run the create admin script
 
@@ -154,10 +159,19 @@ Then navigate to the User table and manually update the role field.
 ### Error: "connection to server ... failed: Connection refused"
 - **Cause**: Database is not running or DATABASE_URL is incorrect
 - **Solution**:
-  1. Check if your database is running: `docker ps` (if using Docker)
-  2. Verify DATABASE_URL in your `.env` file
-  3. For Docker: Make sure the port is `5432` not `5433`
-  4. For Docker: Make sure the database name matches your setup (usually `remie`)
+  1. **For Google Cloud SQL**: Make sure cloud-sql-proxy is running:
+     ```bash
+     ./cloud-sql-proxy remiepay:us-central1:remie-app --port 5433
+     ```
+     You should see: "The proxy has started successfully and is ready for new connections!"
+  2. **For Docker**: Check if your database is running: `docker ps`
+  3. Verify DATABASE_URL in your `.env` file matches your setup:
+     - Google Cloud SQL: port `5433`, database `remie-database`
+     - Docker: port `5432`, database `remie`
+  4. Test connection with psql:
+     ```bash
+     psql "$DATABASE_URL" -c "SELECT version();"
+     ```
 
 ### Error: "DATABASE_URL not found"
 - **Cause**: Missing `.env` file or DATABASE_URL not set
@@ -171,9 +185,10 @@ postgresql://[user]:[password]@[host]:[port]/[database]?schema=public
 
 **Examples:**
 
-- Local Docker: `postgresql://postgres:postgres@localhost:5432/remie?schema=public`
-- Local PostgreSQL: `postgresql://postgres:yourpassword@localhost:5432/remie?schema=public`
-- Production: `postgresql://user:pass@db.example.com:5432/remie_prod?schema=public`
+- **Google Cloud SQL (via proxy)**: `postgresql://postgres:yourpassword@127.0.0.1:5433/remie-database?schema=public`
+- **Local Docker**: `postgresql://postgres:postgres@localhost:5432/remie?schema=public`
+- **Local PostgreSQL**: `postgresql://postgres:yourpassword@localhost:5432/remie?schema=public`
+- **Production (direct)**: `postgresql://user:pass@db.example.com:5432/remie_prod?schema=public`
 
 ## Verifying Admin Access
 
