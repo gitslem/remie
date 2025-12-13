@@ -4,7 +4,9 @@ export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button } from '@/components';
-import { admin } from '@/lib/api';
+import { admin, auth as apiAuth } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import {
   Users,
   Activity,
@@ -165,6 +167,11 @@ const SetLimitsModal = ({
 };
 
 export default function AdminDashboardPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
+
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'pending' | 'activities'>('overview');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -181,6 +188,41 @@ export default function AdminDashboardPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+
+  // Check admin authorization
+  useEffect(() => {
+    const checkAdminAccess = async () => {
+      try {
+        if (authLoading) return;
+
+        if (!user) {
+          toast.error('Please login to access admin dashboard');
+          router.push('/auth/login');
+          return;
+        }
+
+        // Fetch user profile to check role
+        const response = await apiAuth.getMe();
+        const userProfile = response.data.data;
+
+        if (userProfile.role !== 'ADMIN') {
+          toast.error('Access denied. Admin privileges required.');
+          router.push('/dashboard');
+          return;
+        }
+
+        setIsAuthorized(true);
+      } catch (error: any) {
+        console.error('Authorization error:', error);
+        toast.error('Failed to verify admin access');
+        router.push('/dashboard');
+      } finally {
+        setAuthChecking(false);
+      }
+    };
+
+    checkAdminAccess();
+  }, [user, authLoading, router]);
 
   // Fetch dashboard stats
   const fetchStats = async () => {
@@ -524,6 +566,23 @@ export default function AdminDashboardPage() {
   ];
 
   const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+
+  // Show loading while checking authorization
+  if (authChecking || authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"></div>
+          <p className="mt-4 text-gray-600">Verifying admin access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authorized
+  if (!isAuthorized) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
