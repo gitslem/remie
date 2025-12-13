@@ -54,7 +54,23 @@ class AdminService {
       const [users, total] = await prisma.$transaction([
         prisma.user.findMany({
           where,
-          include: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            role: true,
+            status: true,
+            emailVerified: true,
+            phoneVerified: true,
+            kycVerified: true,
+            institution: true,
+            studentId: true,
+            approvedBy: true,
+            approvedAt: true,
+            createdAt: true,
+            lastLoginAt: true,
             wallet: {
               select: {
                 balance: true,
@@ -76,26 +92,6 @@ class AdminService {
           orderBy: { createdAt: 'desc' },
           skip,
           take: limit,
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phoneNumber: true,
-            role: true,
-            status: true,
-            emailVerified: true,
-            phoneVerified: true,
-            kycVerified: true,
-            institution: true,
-            studentId: true,
-            approvedBy: true,
-            approvedAt: true,
-            createdAt: true,
-            lastLoginAt: true,
-            wallet: true,
-            _count: true,
-          },
         }),
         prisma.user.count({ where }),
       ]);
@@ -124,14 +120,6 @@ class AdminService {
         where: {
           status: UserStatus.PENDING_APPROVAL,
         },
-        include: {
-          wallet: {
-            select: {
-              balance: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
         select: {
           id: true,
           email: true,
@@ -144,8 +132,13 @@ class AdminService {
           phoneVerified: true,
           kycVerified: true,
           createdAt: true,
-          wallet: true,
+          wallet: {
+            select: {
+              balance: true,
+            },
+          },
         },
+        orderBy: { createdAt: 'asc' },
       });
 
       return users;
