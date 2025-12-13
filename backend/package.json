@@ -17,7 +17,8 @@
     "prisma:deploy": "npx --yes prisma@5.7.1 migrate deploy",
     "seed": "ts-node prisma/seed.ts",
     "migrate": "bash run-migration.sh",
-    "create-admin": "bash create-admin.sh"
+    "create-admin": "bash create-admin.sh",
+    "check-db": "bash check-db.sh"
   },
   "keywords": [
     "payment",

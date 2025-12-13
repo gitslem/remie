@@ -284,6 +284,36 @@ export class AdminController {
       next(error);
     }
   }
+
+  /**
+   * Update user role (promote to admin or support)
+   */
+  async updateUserRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+      const adminId = req.user?.userId;
+
+      if (!adminId) {
+        throw new AppError('Unauthorized', 401);
+      }
+
+      // Validate role
+      if (!['ADMIN', 'SUPPORT', 'STUDENT'].includes(role)) {
+        throw new AppError('Invalid role. Must be ADMIN, SUPPORT, or STUDENT', 400);
+      }
+
+      const user = await adminService.updateUserRole(userId, role, adminId);
+
+      res.json({
+        success: true,
+        message: `User role updated to ${role} successfully`,
+        data: user,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new AdminController();
