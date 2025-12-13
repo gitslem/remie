@@ -1,18 +1,20 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  User,
-  sendPasswordResetEmail,
-  updateProfile,
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import axios from 'axios';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  status: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -38,98 +40,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Load user from localStorage on mount
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
+    const loadUser = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          // Verify token and get user info
+          const response = await axios.get(`${API_URL}/auth/me`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          setUser(response.data.data);
+        }
+      } catch (error) {
+        // Invalid token, clear it
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    loadUser();
   }, []);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
-    if (!auth) {
-      toast.error('Firebase not initialized');
-      throw new Error('Firebase not initialized');
-    }
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Update user profile
-      await updateProfile(user, {
-        displayName: `${firstName} ${lastName}`,
+      const response = await axios.post(`${API_URL}/auth/register`, {
+        email,
+        password,
+        firstName,
+        lastName,
       });
 
-      // Create user profile via API (which has proper permissions)
-      const token = await user.getIdToken();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+      const { user: userData, token, refreshToken } = response.data.data;
 
-      const response = await fetch(`${apiUrl}/auth/create-profile`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          phoneNumber: '',
-          studentId: '',
-          institution: '',
-        }),
-      });
+      // Store tokens
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', refreshToken);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create profile');
-      }
-
+      setUser(userData);
       toast.success('Account created successfully!');
       router.push('/dashboard');
     } catch (error: any) {
-      const errorMessage = error.code === 'auth/email-already-in-use'
-        ? 'Email already in use'
-        : error.code === 'auth/weak-password'
-        ? 'Password should be at least 6 characters'
-        : error.message || 'Failed to create account';
+      const errorMessage = error.response?.data?.message || 'Failed to create account';
       toast.error(errorMessage);
       throw error;
     }
   };
 
   const login = async (email: string, password: string) => {
-    if (!auth) {
-      toast.error('Firebase not initialized');
-      throw new Error('Firebase not initialized');
-    }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const response = await axios.post(`${API_URL}/auth/login`, {
+        email,
+        password,
+      });
+
+      const { user: userData, token, refreshToken } = response.data.data;
+
+      // Store tokens
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', refreshToken);
+
+      setUser(userData);
       toast.success('Logged in successfully!');
       router.push('/dashboard');
     } catch (error: any) {
-      const errorMessage = error.code === 'auth/invalid-credential'
-        ? 'Invalid email or password'
-        : error.code === 'auth/user-not-found'
-        ? 'User not found'
-        : 'Failed to login';
+      const errorMessage = error.response?.data?.message || 'Invalid email or password';
       toast.error(errorMessage);
       throw error;
     }
   };
 
   const logout = async () => {
-    if (!auth) {
-      toast.error('Firebase not initialized');
-      throw new Error('Firebase not initialized');
-    }
     try {
-      await signOut(auth);
+      // Clear tokens
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      setUser(null);
       toast.success('Logged out successfully');
       router.push('/');
     } catch (error) {
@@ -139,12 +129,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetPassword = async (email: string) => {
-    if (!auth) {
-      toast.error('Firebase not initialized');
-      throw new Error('Firebase not initialized');
-    }
     try {
-      await sendPasswordResetEmail(auth, email);
+      await axios.post(`${API_URL}/auth/forgot-password`, { email });
       toast.success('Password reset email sent!');
     } catch (error) {
       toast.error('Failed to send reset email');

@@ -1,8 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { auth as firebaseAuth } from './firebase';
 
 // API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
 // Create axios instance
 const api: AxiosInstance = axios.create({
@@ -13,20 +12,17 @@ const api: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor to add Firebase ID token
+// Request interceptor to add JWT token from localStorage
 api.interceptors.request.use(
   async (config) => {
     try {
-      // Get current Firebase user and ID token
-      const user = firebaseAuth?.currentUser;
-      if (user) {
-        const token = await user.getIdToken();
-        if (token && config.headers) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+      // Get JWT token from localStorage
+      const token = localStorage.getItem('token');
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('Failed to get Firebase ID token:', error);
+      console.error('Failed to get auth token:', error);
     }
     return config;
   },
