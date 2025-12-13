@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Create user profile via API (which has proper permissions)
       const token = await user.getIdToken();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
       const response = await fetch(`${apiUrl}/auth/create-profile`, {
         method: 'POST',
