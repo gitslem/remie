@@ -122,7 +122,7 @@ export class CryptoService {
       }
 
       // Verify transaction is to platform wallet
-      const platformAddress = this.platformWallet.address;
+      const platformAddress = this.platformWallet!.address;
       const contract = this.getContract(cryptoType);
 
       // Parse transfer event
@@ -198,7 +198,7 @@ export class CryptoService {
             amountInNGN,
             exchangeRate,
             fromAddress: verification.from,
-            toAddress: this.platformWallet.address,
+            toAddress: this.platformWallet!.address,
             blockNumber: BigInt(verification.blockNumber),
             confirmations: verification.confirmations,
             status: verification.confirmations >= 12 ? 'CONFIRMED' : 'CONFIRMING',
@@ -299,7 +299,7 @@ export class CryptoService {
             amount: data.amount,
             amountInNGN,
             exchangeRate,
-            fromAddress: this.platformWallet.address,
+            fromAddress: this.platformWallet!.address,
             toAddress: data.toAddress,
             blockNumber: BigInt(receipt.blockNumber),
             confirmations: 1,
@@ -383,8 +383,10 @@ export class CryptoService {
 
   // Get platform wallet address for deposits
   async getPlatformWalletAddress() {
+    this.initialize(); // Ensure crypto service is initialized
+
     return {
-      address: this.platformWallet.address,
+      address: this.platformWallet!.address,
       supportedTokens: ['USDT', 'USDC'],
       network: 'Polygon',
     };
