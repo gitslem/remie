@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { getIdToken } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -37,7 +38,7 @@ export default function WalletPage() {
   // Load balance from API
   const loadBalance = async () => {
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await fetch('/api/wallet', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -76,7 +77,7 @@ export default function WalletPage() {
     setProcessing(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       console.log('💳 Initiating payment for ₦' + amount);
 
       const response = await fetch('/api/wallet/fund', {
@@ -114,7 +115,7 @@ export default function WalletPage() {
     console.log('🔍 Verifying payment:', reference);
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await fetch(`/api/wallet/verify/${reference}`, {
         headers: { Authorization: `Bearer ${token}` },
       });

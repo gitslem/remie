@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { getIdToken } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -27,7 +28,7 @@ export default function LoansPage() {
   const fetchLoans = async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
+      const token = await getIdToken(user);
       const response = await axios.get(`${API_URL}/loans`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -46,7 +47,7 @@ export default function LoansPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       await axios.post(
         `${API_URL}/loans/apply`,
         {

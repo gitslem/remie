@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { getIdToken } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -38,7 +39,7 @@ export default function SettingsPage() {
 
   const fetchProfile = async () => {
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await axios.get(`${API_URL}/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -64,7 +65,7 @@ export default function SettingsPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       await axios.put(
         `${API_URL}/auth/profile`,
         formData,

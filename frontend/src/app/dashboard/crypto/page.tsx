@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { getIdToken } from 'firebase/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -23,7 +24,7 @@ export default function CryptoPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await axios.post(
         `${API_URL}/crypto/pay`,
         {

@@ -9,6 +9,7 @@ import {
   User,
   sendPasswordResetEmail,
   updateProfile,
+  getIdToken,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
@@ -67,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // Create user profile via API (which has proper permissions)
-      const token = await user.getIdToken();
+      const token = await getIdToken(user);
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
 
       const response = await fetch(`${apiUrl}/auth/create-profile`, {

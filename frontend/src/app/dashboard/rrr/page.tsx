@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { getIdToken } from 'firebase/auth';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -23,7 +24,7 @@ export default function RRRPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await axios.post(
         `${API_URL}/rrr/generate`,
         {

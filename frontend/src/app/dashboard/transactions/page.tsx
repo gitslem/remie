@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { getIdToken } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 
 export default function TransactionsPage() {
@@ -21,7 +22,7 @@ export default function TransactionsPage() {
       return;
     }
     try {
-      const token = await user.getIdToken();
+      const token = await getIdToken(user);
 
       // Fetch wallet transactions via API
       const response = await fetch('/api/wallet/transactions?limit=100', {

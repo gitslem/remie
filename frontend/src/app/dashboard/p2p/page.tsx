@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { getIdToken } from 'firebase/auth';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -43,7 +44,7 @@ export default function P2PPage() {
 
   const fetchWallet = async () => {
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await axios.get(`${API_URL}/wallet`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -61,7 +62,7 @@ export default function P2PPage() {
 
   const fetchTransfers = async () => {
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       const response = await axios.get(`${API_URL}/p2p/transfers`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { page: 1, limit: 10 },
@@ -92,7 +93,7 @@ export default function P2PPage() {
     }
 
     try {
-      const token = await user?.getIdToken();
+      const token = user ? await getIdToken(user) : null;
       await axios.post(
         `${API_URL}/p2p/send`,
         {
