@@ -28,31 +28,65 @@ interface WithdrawCryptoData {
 }
 
 export class CryptoService {
-  private provider: ethers.JsonRpcProvider;
-  private platformWallet: ethers.Wallet;
-  private usdtContract: ethers.Contract;
-  private usdcContract: ethers.Contract;
+  private provider?: ethers.JsonRpcProvider;
+  private platformWallet?: ethers.Wallet;
+  private usdtContract?: ethers.Contract;
+  private usdcContract?: ethers.Contract;
+  private initialized = false;
+  private cryptoEnabled = false;
 
   constructor() {
-    // Initialize provider (Polygon network for lower fees)
-    this.provider = new ethers.JsonRpcProvider(
-      process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com'
+    // Check if crypto features are enabled
+    this.cryptoEnabled = !!(
+      process.env.CRYPTO_PRIVATE_KEY &&
+      process.env.USDT_CONTRACT_ADDRESS &&
+      process.env.USDC_CONTRACT_ADDRESS
     );
 
-    // Initialize platform wallet
-    const privateKey = process.env.CRYPTO_PRIVATE_KEY || '';
-    this.platformWallet = new ethers.Wallet(privateKey, this.provider);
+    if (!this.cryptoEnabled) {
+      logger.warn('Crypto service is disabled - missing environment variables (CRYPTO_PRIVATE_KEY, USDT_CONTRACT_ADDRESS, USDC_CONTRACT_ADDRESS)');
+    }
+  }
 
-    // Initialize token contracts
-    const usdtAddress = process.env.USDT_CONTRACT_ADDRESS || '';
-    const usdcAddress = process.env.USDC_CONTRACT_ADDRESS || '';
+  // Lazy initialization
+  private initialize() {
+    if (this.initialized) return;
 
-    this.usdtContract = new ethers.Contract(usdtAddress, ERC20_ABI, this.platformWallet);
-    this.usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, this.platformWallet);
+    if (!this.cryptoEnabled) {
+      throw new AppError('Crypto features are not enabled. Please configure environment variables.', 503);
+    }
+
+    try {
+      // Initialize provider (Polygon network for lower fees)
+      this.provider = new ethers.JsonRpcProvider(
+        process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com'
+      );
+
+      // Initialize platform wallet
+      const privateKey = process.env.CRYPTO_PRIVATE_KEY!;
+      this.platformWallet = new ethers.Wallet(privateKey, this.provider);
+
+      // Initialize token contracts
+      const usdtAddress = process.env.USDT_CONTRACT_ADDRESS!;
+      const usdcAddress = process.env.USDC_CONTRACT_ADDRESS!;
+
+      this.usdtContract = new ethers.Contract(usdtAddress, ERC20_ABI, this.platformWallet);
+      this.usdcContract = new ethers.Contract(usdcAddress, ERC20_ABI, this.platformWallet);
+
+      this.initialized = true;
+      logger.info('Crypto service initialized successfully');
+    } catch (error: any) {
+      logger.error('Failed to initialize crypto service:', error);
+      throw new AppError('Failed to initialize crypto service', 500);
+    }
   }
 
   // Get contract for crypto type
   private getContract(cryptoType: CryptoType): ethers.Contract {
+    if (!this.usdtContract || !this.usdcContract) {
+      throw new AppError('Crypto service not initialized', 500);
+    }
+
     switch (cryptoType) {
       case 'USDT':
         return this.usdtContract;
@@ -72,6 +106,10 @@ export class CryptoService {
 
   // Verify transaction on blockchain
   private async verifyTransaction(txHash: string, expectedAmount: number, cryptoType: CryptoType) {
+    if (!this.provider || !this.platformWallet) {
+      throw new AppError('Crypto service not initialized', 500);
+    }
+
     try {
       const receipt = await this.provider.getTransactionReceipt(txHash);
 
@@ -124,6 +162,8 @@ export class CryptoService {
 
   // Deposit crypto to wallet
   async depositCrypto(data: DepositCryptoData) {
+    this.initialize(); // Ensure crypto service is initialized
+
     try {
       // Check if transaction already processed
       const existing = await prisma.cryptoTransaction.findUnique({
@@ -207,6 +247,8 @@ export class CryptoService {
 
   // Withdraw crypto from wallet
   async withdrawCrypto(data: WithdrawCryptoData) {
+    this.initialize(); // Ensure crypto service is initialized
+
     try {
       // Validate address
       if (!ethers.isAddress(data.toAddress)) {
@@ -350,6 +392,7 @@ export class CryptoService {
 
   // Get current crypto prices
   async getCryptoPrices() {
+    // No need to initialize for just getting exchange rates
     const exchangeRate = await this.getExchangeRate();
 
     return {

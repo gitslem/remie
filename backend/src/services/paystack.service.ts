@@ -109,7 +109,7 @@ class PaystackService {
     this.baseURL = 'https://api.paystack.co';
 
     if (!this.apiKey) {
-      logger.error('Paystack API key not configured');
+      logger.warn('Paystack service is disabled - missing PAYSTACK_SECRET_KEY environment variable');
     }
 
     this.client = axios.create({
