@@ -1,4 +1,5 @@
-import { PrismaClient, UserStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { UserStatus } from '../types/prisma-enums';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 

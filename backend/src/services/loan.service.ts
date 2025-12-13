@@ -1,4 +1,5 @@
-import { PrismaClient, PaymentType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PaymentType } from '../types/prisma-enums';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 import { sendEmail } from '../utils/email';

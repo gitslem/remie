@@ -1,4 +1,5 @@
-import { PrismaClient, CryptoType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { CryptoType } from '../types/prisma-enums';
 import { ethers } from 'ethers';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';

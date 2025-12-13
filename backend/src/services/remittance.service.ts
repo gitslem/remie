@@ -1,4 +1,5 @@
-import { PrismaClient, PaymentStatus, PaymentMethod, PaymentType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { PaymentStatus, PaymentMethod, PaymentType } from '../types/prisma-enums';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import emailService from './email.service';
