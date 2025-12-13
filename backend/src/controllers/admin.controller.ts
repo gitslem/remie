@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import adminService from '../services/admin.service';
 import { AppError } from '../middleware/errorHandler';
-import { UserStatus } from '../types/prisma-enums';
+import { UserStatus } from '@prisma/client';
 
 export class AdminController {
   /**
