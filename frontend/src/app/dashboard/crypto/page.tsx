@@ -23,7 +23,7 @@ export default function CryptoPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = localStorage.getItem('token');
       const response = await axios.post(
         `${API_URL}/crypto/pay`,
         {

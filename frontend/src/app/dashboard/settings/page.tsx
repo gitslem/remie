@@ -38,7 +38,7 @@ export default function SettingsPage() {
 
   const fetchProfile = async () => {
     try {
-      const token = await user?.getIdToken();
+      const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -64,7 +64,7 @@ export default function SettingsPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = localStorage.getItem('token');
       await axios.put(
         `${API_URL}/auth/profile`,
         formData,

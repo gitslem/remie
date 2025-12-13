@@ -21,7 +21,7 @@ export default function TransactionsPage() {
       return;
     }
     try {
-      const token = await user.getIdToken();
+      const token = localStorage.getItem('token');
 
       // Fetch wallet transactions via API
       const response = await fetch('/api/wallet/transactions?limit=100', {

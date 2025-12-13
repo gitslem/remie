@@ -23,14 +23,14 @@ export default function RRRPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = localStorage.getItem('token');
       const response = await axios.post(
         `${API_URL}/rrr/generate`,
         {
           amount: parseFloat(formData.amount),
           purpose: formData.purpose,
           description: formData.description,
-          payerName: user?.displayName,
+          payerName: `${user?.firstName} ${user?.lastName}`,
           payerEmail: user?.email,
           institution: formData.institution,
         },
