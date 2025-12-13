@@ -67,7 +67,7 @@ export default function DashboardPage() {
       {/* Welcome section */}
       <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl p-8 text-white">
         <h1 className="text-3xl font-bold mb-2">
-          Welcome back, {user?.displayName?.split(' ')[0] || 'User'}!
+          Welcome back, {user?.firstName || 'User'}!
         </h1>
         <p className="text-indigo-100">Here's what's happening with your account today.</p>
       </div>

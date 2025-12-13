@@ -100,12 +100,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex items-center mb-3">
               <div className="flex-shrink-0">
                 <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold">
-                  {user.displayName?.charAt(0) || user.email?.charAt(0).toUpperCase()}
+                  {user.firstName?.charAt(0) || user.email?.charAt(0).toUpperCase()}
                 </div>
               </div>
               <div className="ml-3 overflow-hidden">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {user.displayName || 'User'}
+                  {`${user.firstName} ${user.lastName}` || 'User'}
                 </p>
                 <p className="text-xs text-gray-500 truncate">{user.email}</p>
               </div>

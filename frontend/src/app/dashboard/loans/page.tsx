@@ -27,7 +27,7 @@ export default function LoansPage() {
   const fetchLoans = async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
+      const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/loans`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -46,7 +46,7 @@ export default function LoansPage() {
     setLoading(true);
 
     try {
-      const token = await user?.getIdToken();
+      const token = localStorage.getItem('token');
       await axios.post(
         `${API_URL}/loans/apply`,
         {
