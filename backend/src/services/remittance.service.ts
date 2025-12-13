@@ -1,4 +1,6 @@
 import { PrismaClient, PaymentStatus, PaymentMethod, PaymentType } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import emailService from './email.service';
 import logger from '../utils/logger';
 
@@ -138,7 +140,7 @@ class RemittanceService {
       }
 
       // Check if sender has sufficient balance
-      if (senderWallet.availableBalance < calculation.total) {
+      if (senderWallet.availableBalance.toNumber() < calculation.total) {
         throw new Error(
           `Insufficient balance. You need ₦${calculation.total.toLocaleString(
             'en-NG'
@@ -152,15 +154,27 @@ class RemittanceService {
       });
 
       if (!recipient) {
+        // Generate temporary password for the recipient
+        const temporaryPassword = this.generateTemporaryPassword();
+        const hashedPassword = await this.hashPassword(temporaryPassword);
+
+        // Generate password reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+        const resetTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
         // Create a new user for the recipient
         recipient = await prisma.user.create({
           data: {
             email: params.recipientEmail,
+            password: hashedPassword,
             phoneNumber: params.recipientPhone,
             firstName: params.recipientName.split(' ')[0],
             lastName: params.recipientName.split(' ').slice(1).join(' ') || '',
             role: 'STUDENT',
             status: 'PENDING_VERIFICATION',
+            resetToken: resetTokenHash,
+            resetTokenExpiry,
           },
         });
 
@@ -170,6 +184,24 @@ class RemittanceService {
             userId: recipient.id,
           },
         });
+
+        // Send welcome email with password reset link
+        try {
+          const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+          await emailService.sendEmail({
+            to: params.recipientEmail,
+            subject: 'Welcome to REMIE - Set Your Password',
+            html: this.getWelcomeEmailTemplate({
+              recipientName: params.recipientName,
+              senderName: params.senderName,
+              resetUrl,
+            }),
+          });
+        } catch (emailError: any) {
+          logger.warn('Failed to send welcome email to new recipient', {
+            error: emailError.message,
+          });
+        }
       }
 
       // Generate reference
@@ -345,6 +377,20 @@ class RemittanceService {
   }
 
   /**
+   * Generate temporary password for new recipients
+   */
+  private generateTemporaryPassword(): string {
+    return crypto.randomBytes(16).toString('hex');
+  }
+
+  /**
+   * Hash password
+   */
+  private async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, 12);
+  }
+
+  /**
    * Get country currency
    */
   private getCountryCurrency(country: string): string {
@@ -465,6 +511,58 @@ class RemittanceService {
             <center>
               <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0;">View Wallet</a>
             </center>
+          </div>
+
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} REMIE. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Welcome email template for new recipients
+   */
+  private getWelcomeEmailTemplate(params: {
+    recipientName: string;
+    senderName: string;
+    resetUrl: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9fafb; padding: 30px; }
+          .button { background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 20px 0; }
+          .footer { text-align: center; color: #6b7280; font-size: 12px; padding: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Welcome to REMIE!</h1>
+          </div>
+
+          <div class="content">
+            <h2>Hi ${params.recipientName},</h2>
+            <p>${params.senderName} has sent you money through REMIE, and we've created an account for you.</p>
+
+            <p>To access your funds and set up your password, please click the button below:</p>
+
+            <center>
+              <a href="${params.resetUrl}" class="button">Set Your Password</a>
+            </center>
+
+            <p style="color: #6b7280; font-size: 14px; margin-top: 20px;">
+              This link will expire in 7 days. If you didn't expect this email, you can safely ignore it.
+            </p>
           </div>
 
           <div class="footer">
