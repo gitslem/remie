@@ -33,4 +33,7 @@ router.put('/users/:userId/limits', adminController.updateWalletLimits);
 // Nickname management
 router.put('/users/:userId/nickname', adminController.updateUserNickname);
 
+// Role management (promote to admin/support)
+router.put('/users/:userId/role', adminController.updateUserRole);
+
 export default router;

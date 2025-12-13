@@ -518,6 +518,55 @@ class AdminService {
       throw error;
     }
   }
+
+  /**
+   * Update user role (super admin only - promote to ADMIN or SUPPORT)
+   */
+  async updateUserRole(userId: string, role: 'ADMIN' | 'SUPPORT' | 'STUDENT', adminId: string) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new AppError('User not found', 404);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          role,
+          // Auto-activate admin/support users
+          status: role !== 'STUDENT' ? UserStatus.ACTIVE : user.status,
+          emailVerified: role !== 'STUDENT' ? true : user.emailVerified,
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          emailVerified: true,
+        },
+      });
+
+      logger.info(`User role updated by admin`, {
+        userId,
+        adminId,
+        oldRole: user.role,
+        newRole: role,
+      });
+
+      return updatedUser;
+    } catch (error: any) {
+      logger.error('Failed to update user role', {
+        userId,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
 }
 
 export default new AdminService();
