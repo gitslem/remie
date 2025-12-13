@@ -182,7 +182,7 @@ class WalletService {
       await prisma.payment.update({
         where: { id: payment.id },
         data: {
-          gatewayResponse: paystackResponse,
+          gatewayResponse: JSON.parse(JSON.stringify(paystackResponse)),
         },
       });
 
@@ -238,7 +238,7 @@ class WalletService {
           where: { id: payment.id },
           data: {
             status: PaymentStatus.FAILED,
-            gatewayResponse: verification,
+            gatewayResponse: JSON.parse(JSON.stringify(verification)),
           },
         });
 
@@ -276,7 +276,7 @@ class WalletService {
           data: {
             status: PaymentStatus.COMPLETED,
             processingFee,
-            gatewayResponse: verification,
+            gatewayResponse: JSON.parse(JSON.stringify(verification)),
             completedAt: new Date(verification.data.paid_at),
           },
         }),
@@ -356,7 +356,8 @@ class WalletService {
         throw new Error('Minimum withdrawal amount is ₦100');
       }
 
-      if (params.amount > wallet.availableBalance) {
+      const availableBalance = parseFloat(wallet.availableBalance.toString());
+      if (params.amount > availableBalance) {
         throw new Error('Insufficient balance');
       }
 
@@ -374,13 +375,13 @@ class WalletService {
         _sum: { amount: true },
       });
 
-      const totalWithdrawnToday = todayWithdrawals._sum.amount || 0;
+      const totalWithdrawnToday = parseFloat((todayWithdrawals._sum.amount || 0).toString());
+      const dailyLimit = parseFloat(wallet.dailyLimit.toString());
 
-      if (totalWithdrawnToday + params.amount > wallet.dailyLimit) {
+      if (totalWithdrawnToday + params.amount > dailyLimit) {
+        const remaining = dailyLimit - totalWithdrawnToday;
         throw new Error(
-          `Daily withdrawal limit exceeded. You can withdraw ₦${
-            wallet.dailyLimit - totalWithdrawnToday
-          } more today.`
+          `Daily withdrawal limit exceeded. You can withdraw ₦${remaining.toFixed(2)} more today.`
         );
       }
 
@@ -440,7 +441,7 @@ class WalletService {
               accountName,
               bankCode: params.bankAccount.bankCode,
             },
-            gatewayResponse: transfer,
+            gatewayResponse: JSON.parse(JSON.stringify(transfer)),
           },
         }),
       ]);
