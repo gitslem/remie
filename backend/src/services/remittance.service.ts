@@ -197,6 +197,9 @@ class RemittanceService {
             method: PaymentMethod.WALLET,
             status: PaymentStatus.PROCESSING,
             reference,
+            recipientName: params.recipientName,
+            description: `International remittance to ${params.country} - ${params.purpose}`,
+            totalAmount: calculation.total,
             processingFee: calculation.fee,
             metadata: {
               recipientId: recipient.id,
