@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import paystackService from '../services/paystack.service';
 import walletService from '../services/wallet.service';
 import logger from '../utils/logger';
-import { PrismaClient } from '@prisma/client';
-import { PaymentStatus, PaymentType } from '../types/prisma-enums';
+import { PrismaClient, PaymentStatus, PaymentType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
