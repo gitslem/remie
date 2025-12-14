@@ -18,6 +18,8 @@
     "seed": "ts-node prisma/seed.ts",
     "migrate": "bash run-migration.sh",
     "create-admin": "bash create-admin.sh",
+    "create-first-admin": "ts-node scripts/create-first-admin.ts",
+    "promote-admin": "ts-node prisma/create-admin.ts",
     "check-db": "bash check-db.sh"
   },
   "keywords": [
