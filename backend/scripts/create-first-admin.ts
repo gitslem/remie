@@ -15,13 +15,6 @@ import * as readline from 'readline';
 
 const prisma = new PrismaClient();
 
-interface AdminData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
-
 async function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
