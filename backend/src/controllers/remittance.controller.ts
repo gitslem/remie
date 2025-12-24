@@ -125,8 +125,8 @@ export const sendRemittance = async (req: Request, res: Response) => {
 export const getSentRemittances = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.userId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 20;
 
     const result = await remittanceService.getRemittances(userId, 'sent', page, limit);
 
@@ -150,8 +150,8 @@ export const getSentRemittances = async (req: Request, res: Response) => {
 export const getReceivedRemittances = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.userId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 20;
 
     const result = await remittanceService.getRemittances(userId, 'received', page, limit);
 

@@ -12,8 +12,8 @@ export class AdminController {
       const { page, limit, status, search } = req.query;
 
       const result = await adminService.getUsers({
-        page: page ? parseInt(page as string) : undefined,
-        limit: limit ? parseInt(limit as string) : undefined,
+        page: page ? parseInt(page as string, 10) : undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
         status: status as UserStatus,
         search: search as string,
       });
@@ -231,7 +231,7 @@ export class AdminController {
     try {
       const { limit } = req.query;
       const activities = await adminService.getRecentActivities(
-        limit ? parseInt(limit as string) : 50
+        limit ? parseInt(limit as string, 10) : 50
       );
 
       res.json({

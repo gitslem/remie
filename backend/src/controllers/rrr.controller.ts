@@ -68,8 +68,8 @@ export class RRRController {
         throw new AppError('Not authenticated', 401);
       }
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const page = parseInt(req.query.page as string, 10) || 1;
+      const limit = parseInt(req.query.limit as string, 10) || 20;
 
       const result = await rrrService.getUserRRRPayments(
         req.user.userId,
