@@ -81,8 +81,8 @@ apiRouter.get('/', (req, res) => {
   });
 });
 
-// Mount API router under /api/v1 prefix to match frontend configuration
-app.use('/api/v1', apiRouter);
+// Mount API router under /api prefix (frontend is calling /api/auth/register)
+app.use('/api', apiRouter);
 
 // Export Express app as Firebase Function with runtime options
 export const api = functions
