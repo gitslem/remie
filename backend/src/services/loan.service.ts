@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 import { PaymentType } from '../types/prisma-enums';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
@@ -21,15 +22,15 @@ export class LoanService {
   private readonly maxTenureDays: number;
 
   constructor() {
-    this.minLoanAmount = parseInt(process.env.MIN_LOAN_AMOUNT || '5000');
-    this.maxLoanAmount = parseInt(process.env.MAX_LOAN_AMOUNT || '50000');
+    this.minLoanAmount = parseInt(process.env.MIN_LOAN_AMOUNT || '5000', 10);
+    this.maxLoanAmount = parseInt(process.env.MAX_LOAN_AMOUNT || '50000', 10);
     this.interestRate = parseFloat(process.env.LOAN_INTEREST_RATE || '5');
-    this.maxTenureDays = parseInt(process.env.MAX_LOAN_TENURE_DAYS || '90');
+    this.maxTenureDays = parseInt(process.env.MAX_LOAN_TENURE_DAYS || '90', 10);
   }
 
   // Generate unique loan number
   private generateLoanNumber(): string {
-    return `LOAN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `LOAN-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
   }
 
   // Calculate total repayable amount

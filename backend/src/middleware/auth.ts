@@ -32,9 +32,14 @@ export const authenticate = async (
       return next(new AppError('Authentication token required', 401));
     }
 
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return next(new AppError('Server configuration error', 500));
+    }
+
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET as string
+      secret
     ) as JwtPayload;
 
     // Verify user still exists and is active

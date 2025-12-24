@@ -272,8 +272,13 @@ class PaystackService {
    * Verify webhook signature
    */
   verifyWebhookSignature(payload: string, signature: string): boolean {
+    const secret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    if (!secret) {
+      logger.error('PAYSTACK_WEBHOOK_SECRET not configured');
+      return false;
+    }
     const hash = crypto
-      .createHmac('sha512', process.env.PAYSTACK_WEBHOOK_SECRET || '')
+      .createHmac('sha512', secret)
       .update(payload)
       .digest('hex');
 
@@ -284,7 +289,7 @@ class PaystackService {
    * Generate a unique payment reference
    */
   generateReference(): string {
-    return `REMIE_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
+    return `REMIE_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`.toUpperCase();
   }
 
   /**

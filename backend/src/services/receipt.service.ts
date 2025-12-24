@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
+import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import logger from '../utils/logger';
 import fs from 'fs';
@@ -405,7 +406,7 @@ class ReceiptService {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const random = crypto.randomBytes(4).toString('hex').toUpperCase();
 
     return `RCP-${year}${month}-${random}`;
   }

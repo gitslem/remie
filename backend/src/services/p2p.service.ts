@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import crypto from 'crypto';
 import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 import { sendEmail } from '../utils/email';
@@ -19,7 +20,7 @@ export class P2PService {
 
   // Generate unique reference
   private generateReference(): string {
-    return `P2P-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `P2P-${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
   }
 
   // Calculate fee (if any)

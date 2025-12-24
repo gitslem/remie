@@ -27,6 +27,34 @@ import adminRoutes from './routes/admin.routes';
 // Load environment variables
 dotenv.config();
 
+// Validate required environment variables
+const requiredEnvVars = [
+  'JWT_SECRET',
+  'REFRESH_TOKEN_SECRET',
+  'DATABASE_URL',
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  logger.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  logger.error('Please set all required environment variables before starting the server');
+  process.exit(1);
+}
+
+// Warn about optional but recommended environment variables
+const recommendedEnvVars = [
+  'PAYSTACK_SECRET_KEY',
+  'PAYSTACK_WEBHOOK_SECRET',
+];
+
+const missingRecommendedVars = recommendedEnvVars.filter(varName => !process.env[varName]);
+
+if (missingRecommendedVars.length > 0) {
+  logger.warn(`Missing recommended environment variables: ${missingRecommendedVars.join(', ')}`);
+  logger.warn('Some features may not work correctly without these variables');
+}
+
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
@@ -80,8 +108,8 @@ if (process.env.NODE_ENV === 'development') {
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,

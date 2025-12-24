@@ -26,15 +26,21 @@ interface LoginData {
 export class AuthService {
   // Generate JWT token
   private generateToken(userId: string, email: string, role: string): string {
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
-    const options: SignOptions = { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any };
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new AppError('JWT_SECRET environment variable is required', 500);
+    }
+    const options: SignOptions = { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string };
     return jwt.sign({ userId, email, role }, secret, options);
   }
 
   // Generate refresh token
   private generateRefreshToken(userId: string): string {
-    const secret = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
-    const options: SignOptions = { expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as any };
+    const secret = process.env.REFRESH_TOKEN_SECRET;
+    if (!secret) {
+      throw new AppError('REFRESH_TOKEN_SECRET environment variable is required', 500);
+    }
+    const options: SignOptions = { expiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '30d') as string };
     return jwt.sign({ userId }, secret, options);
   }
 
@@ -208,9 +214,13 @@ export class AuthService {
   // Refresh token
   async refreshToken(refreshToken: string) {
     try {
+      const secret = process.env.REFRESH_TOKEN_SECRET;
+      if (!secret) {
+        throw new AppError('REFRESH_TOKEN_SECRET environment variable is required', 500);
+      }
       const decoded = jwt.verify(
         refreshToken,
-        process.env.REFRESH_TOKEN_SECRET as string
+        secret
       ) as { userId: string };
 
       const user = await prisma.user.findUnique({
