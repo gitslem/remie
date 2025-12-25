@@ -89,6 +89,7 @@ model User {
   receipts          Receipt[]
   notifications     Notification[]
   cryptoTransactions CryptoTransaction[]
+  subscriptions     Subscription[]
 
   @@index([email])
   @@index([phoneNumber])
@@ -587,4 +588,140 @@ model SystemSetting {
   updatedAt         DateTime  @updatedAt
 
   @@index([key])
+}
+
+// ============================================
+// PACKAGES & SUBSCRIPTIONS
+// ============================================
+
+enum PackageTier {
+  FREE
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+}
+
+model Package {
+  id                String        @id @default(uuid())
+  name              String        @unique
+  tier              PackageTier   @unique
+  description       String
+  price             Decimal       @db.Decimal(18, 2)
+  duration          Int           // Duration in days
+
+  // Benefits
+  benefits          Json          // Array of benefit strings
+  features          Json          // Array of feature objects
+
+  // Limits
+  maxTransactions   Int           @default(-1) // -1 for unlimited
+  maxLoans          Int           @default(-1)
+  maxP2PTransfers   Int           @default(-1)
+  maxCryptoPayments Int           @default(-1)
+
+  // Chat access
+  chatChannels      Json          // Array of channel IDs user can access
+
+  // Status
+  isActive          Boolean       @default(true)
+  isFeatured        Boolean       @default(false)
+
+  // Display
+  color             String?       // Hex color for UI
+  icon              String?       // Icon name or URL
+  badge             String?       // Badge text (e.g., "Most Popular")
+
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  subscriptions     Subscription[]
+
+  @@index([tier])
+  @@index([isActive])
+}
+
+model Subscription {
+  id                String              @id @default(uuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id])
+  packageId         String
+  package           Package             @relation(fields: [packageId], references: [id])
+
+  // Subscription details
+  startDate         DateTime            @default(now())
+  endDate           DateTime
+  status            SubscriptionStatus  @default(ACTIVE)
+
+  // Payment
+  amount            Decimal             @db.Decimal(18, 2)
+  paymentReference  String?             @unique
+
+  // Auto-renewal
+  autoRenew         Boolean             @default(false)
+  renewalDate       DateTime?
+
+  // Cancellation
+  cancelledAt       DateTime?
+  cancelReason      String?
+
+  // Metadata
+  metadata          Json?
+
+  // Timestamps
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([packageId])
+  @@index([status])
+  @@index([endDate])
+}
+
+// ============================================
+// CHAT CHANNELS
+// ============================================
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+  PREMIUM
+  TIER_BASED
+}
+
+model ChatChannel {
+  id                String        @id @default(uuid())
+  name              String        @unique
+  slug              String        @unique
+  description       String?
+
+  // Access control
+  type              ChannelType   @default(PUBLIC)
+  requiredTier      PackageTier?  // Minimum tier required
+  allowedUsers      Json?         // Array of user IDs with manual access
+
+  // Display
+  icon              String?
+  color             String?
+  order             Int           @default(0)
+
+  // Status
+  isActive          Boolean       @default(true)
+  isArchived        Boolean       @default(false)
+
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([type])
+  @@index([isActive])
 }
