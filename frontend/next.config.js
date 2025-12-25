@@ -8,6 +8,19 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1',
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'geolocation=(), microphone=(), camera=()',
+          },
+        ],
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     // Fix for undici module with private class fields
     if (!isServer) {
