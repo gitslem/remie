@@ -30,8 +30,8 @@ export default function SignupPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      alert('Password must be at least 6 characters');
+    if (formData.password.length < 8) {
+      alert('Password must be at least 8 characters');
       return;
     }
 
@@ -108,7 +108,7 @@ export default function SignupPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                Password (min. 8 characters)
               </label>
               <input
                 id="password"
