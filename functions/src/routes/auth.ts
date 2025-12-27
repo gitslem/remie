@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
+import { sendEmail } from '../utils/email';
 
 const router = Router();
 const db = admin.firestore();
@@ -359,6 +360,7 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
     }
 
     const userDoc = userSnapshot.docs[0];
+    const userData = userDoc.data();
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -379,9 +381,22 @@ router.post('/forgot-password', async (req: Request, res: Response): Promise<voi
     const frontendUrl = process.env.FRONTEND_URL || 'https://remiepay.web.app';
     const resetUrl = `${frontendUrl}/auth/reset-password/${resetToken}`;
 
-    // TODO: Send email with reset link
-    // For now, log the reset URL (in production, this should send an email)
-    console.log(`Password reset URL for ${email}: ${resetUrl}`);
+    // Send password reset email
+    try {
+      await sendEmail({
+        to: email.toLowerCase(),
+        subject: 'Reset Your REMIE Password',
+        template: 'password-reset',
+        data: {
+          firstName: userData.firstName || 'User',
+          resetUrl,
+        },
+      });
+      console.log(`Password reset email sent to ${email}`);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Continue even if email fails - user can still use the link from logs
+    }
 
     res.status(200).json({
       status: 'success',
