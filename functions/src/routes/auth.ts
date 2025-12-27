@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import * as admin from 'firebase-admin';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
 
 const router = Router();
 const db = admin.firestore();
@@ -325,6 +326,150 @@ router.get('/me', authenticateJWT, async (req: Request, res: Response): Promise<
     res.status(500).json({
       status: 'error',
       message: error.message,
+    });
+  }
+});
+
+// Forgot password - Request password reset
+router.post('/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Email is required',
+      });
+      return;
+    }
+
+    // Find user
+    const userSnapshot = await db.collection('users')
+      .where('email', '==', email.toLowerCase())
+      .limit(1)
+      .get();
+
+    // Always return success to avoid email enumeration
+    if (userSnapshot.empty) {
+      res.status(200).json({
+        status: 'success',
+        message: 'If user exists, password reset email will be sent',
+      });
+      return;
+    }
+
+    const userDoc = userSnapshot.docs[0];
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    // Save reset token to user document
+    await userDoc.ref.update({
+      resetToken: resetTokenHash,
+      resetTokenExpiry: admin.firestore.Timestamp.fromDate(resetTokenExpiry),
+    });
+
+    // Get frontend URL from environment or use default
+    const frontendUrl = process.env.FRONTEND_URL || 'https://remiepay.web.app';
+    const resetUrl = `${frontendUrl}/auth/reset-password/${resetToken}`;
+
+    // TODO: Send email with reset link
+    // For now, log the reset URL (in production, this should send an email)
+    console.log(`Password reset URL for ${email}: ${resetUrl}`);
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Password reset email sent',
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Failed to process password reset request',
+    });
+  }
+});
+
+// Reset password - Complete password reset
+router.post('/reset-password/:token', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Password is required',
+      });
+      return;
+    }
+
+    // Validate password length
+    if (password.length < 8) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Password must be at least 8 characters',
+      });
+      return;
+    }
+
+    // Hash the token to match what's stored
+    const resetTokenHash = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with valid reset token
+    const now = admin.firestore.Timestamp.now();
+    const usersSnapshot = await db.collection('users')
+      .where('resetToken', '==', resetTokenHash)
+      .limit(1)
+      .get();
+
+    if (usersSnapshot.empty) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Invalid or expired reset token',
+      });
+      return;
+    }
+
+    const userDoc = usersSnapshot.docs[0];
+    const userData = userDoc.data();
+
+    // Check if token has expired
+    if (!userData.resetTokenExpiry || userData.resetTokenExpiry.toDate() < now.toDate()) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Reset token has expired',
+      });
+      return;
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update password and clear reset token
+    await userDoc.ref.update({
+      password: hashedPassword,
+      resetToken: admin.firestore.FieldValue.delete(),
+      resetTokenExpiry: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Password reset successful',
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Failed to reset password',
     });
   }
 });
